@@ -1,11 +1,12 @@
 export const BRAND_ASSET_PATHS = {
+  m3MacIconPng: "assets/m3/m3-macos-1024.png",
   developmentIconComposerProject: "assets/dev/app-icon.icon",
   developmentIosIconPng: "assets/dev/blueprint-ios-1024.png",
   developmentUniversalIconPng: "assets/dev/blueprint-universal-1024.png",
 
   productionIconComposerProject: "assets/prod/app-icon.icon",
   productionIosIconPng: "assets/prod/black-ios-1024.png",
-  productionMacIconPng: "assets/prod/black-macos-1024.png",
+  productionMacIconPng: "assets/m3/m3-macos-1024.png",
   productionLinuxIconPng: "assets/prod/black-universal-1024.png",
   productionWindowsIconIco: "assets/prod/t3-black-windows.ico",
   productionWebFaviconIco: "assets/prod/t3-black-web-favicon.ico",
@@ -15,7 +16,7 @@ export const BRAND_ASSET_PATHS = {
 
   nightlyIconComposerProject: "assets/nightly/app-icon.icon",
   nightlyIosIconPng: "assets/nightly/nightly-ios-1024.png",
-  nightlyMacIconPng: "assets/nightly/nightly-macos-1024.png",
+  nightlyMacIconPng: "assets/m3/m3-macos-1024.png",
   nightlyLinuxIconPng: "assets/nightly/nightly-universal-1024.png",
   nightlyWindowsIconIco: "assets/nightly/nightly-windows.ico",
   nightlyWebFaviconIco: "assets/nightly/nightly-web-favicon.ico",
@@ -23,7 +24,7 @@ export const BRAND_ASSET_PATHS = {
   nightlyWebFavicon32Png: "assets/nightly/nightly-web-favicon-32x32.png",
   nightlyWebAppleTouchIconPng: "assets/nightly/nightly-web-apple-touch-180.png",
 
-  developmentDesktopIconPng: "assets/dev/blueprint-macos-1024.png",
+  developmentDesktopIconPng: "assets/m3/m3-macos-1024.png",
   developmentWindowsIconIco: "assets/dev/blueprint-windows.ico",
   developmentWebFaviconIco: "assets/dev/blueprint-web-favicon.ico",
   developmentWebFavicon16Png: "assets/dev/blueprint-web-favicon-16x16.png",

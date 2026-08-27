@@ -1,4 +1,11 @@
-# T3 Code
+# M3 Code
+
+M3 Code is Houguiram's personal desktop fork of [T3 Code](https://github.com/pingdotgg/t3code).
+It uses its own application identity, `m3code://` protocol, update repository, and `~/.m3`
+runtime state so it can coexist safely with the official app. The upstream project documentation is
+preserved below for development and synchronization reference.
+
+## Upstream T3 Code project
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
