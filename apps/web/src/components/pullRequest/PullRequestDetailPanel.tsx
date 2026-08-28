@@ -52,6 +52,7 @@ import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
 import { useCopyToClipboard, writeTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { changeRequestRepositoryUrl } from "~/lib/openPullRequestLink";
+import { graphitePullRequestUrl } from "@t3tools/shared/sourceControl";
 import { usePreparePullRequestThreadAction } from "~/lib/sourceControlActions";
 import { cn } from "~/lib/utils";
 import { readLocalApi } from "~/localApi";
@@ -505,6 +506,7 @@ export function PullRequestDetailPanel({
     [activity, coreDetail],
   );
   const repositoryUrl = detail === null ? null : changeRequestRepositoryUrl(detail.url);
+  const graphiteUrl = detail === null ? null : graphitePullRequestUrl(detail.url);
   const branchRefsQuery = useEnvironmentQuery(
     detail === null
       ? null
@@ -1448,6 +1450,12 @@ export function PullRequestDetailPanel({
                     <ArrowUpRightIcon className="size-3.5" />
                     {openOnHostLabel(detail.provider)}
                   </MenuItem>
+                  {graphiteUrl !== null ? (
+                    <MenuItem onClick={() => void readLocalApi()?.shell.openExternal(graphiteUrl)}>
+                      <ArrowUpRightIcon className="size-3.5" />
+                      Open in Graphite
+                    </MenuItem>
+                  ) : null}
                   <MenuItem onClick={() => void writeTextToClipboard(detail.url)}>
                     <LinkIcon className="size-3.5" />
                     Copy link

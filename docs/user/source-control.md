@@ -43,6 +43,7 @@ T3 Code works with the platforms your team already uses:
   leaving the conversation
 - Open the review directly in your browser with one click
 - Command-click (Control-click on Windows and Linux) a pull request number in the sidebar to open it in your browser instead of in T3 Code
+- For a pull request on github.com, **Open in Graphite** takes you to the same review in Graphite instead. It sits beside the host's own link in the Git actions menu, in a review's own menu, and on a right-click of a pull request number
 - Check out a teammate's branch to review code locally
 
 **Fix what you wrote, in place**
