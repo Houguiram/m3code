@@ -134,6 +134,7 @@ function RootRouteView() {
         <DocumentTitleSync />
         <ContrastAppearanceSync />
         <GlassAppearanceSync />
+        <SidebarTransparencyAppearanceSync />
         <FontAppearanceSync />
         {primaryEnvironmentAuthenticated ? <AuthenticatedTracingBootstrap /> : null}
         <RelayClientInstallDialog />
@@ -170,6 +171,19 @@ function GlassAppearanceSync() {
   useEffect(() => {
     document.documentElement.style.setProperty("--glass-opacity", `${glassOpacity}%`);
   }, [glassOpacity]);
+
+  return null;
+}
+
+function SidebarTransparencyAppearanceSync() {
+  const sidebarTransparency = useClientSettings((settings) => settings.sidebarTransparency);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--macos-sidebar-transparency",
+      `${sidebarTransparency}`,
+    );
+  }, [sidebarTransparency]);
 
   return null;
 }

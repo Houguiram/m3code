@@ -36,12 +36,14 @@ type BootResult = {
   backgroundColor: string;
   bootVariables: Record<string, string>;
   metaContent: string | null;
+  classes: ReadonlySet<string>;
 };
 
 function runBootScript(options: {
   storage?: Record<string, string>;
   storageThrows?: boolean;
   prefersDark: boolean;
+  desktopPlatform?: string;
 }): BootResult {
   const classes = new Set<string>();
   const bootVariables: Record<string, string> = {};
@@ -82,6 +84,9 @@ function runBootScript(options: {
       },
     },
     matchMedia: () => ({ matches: options.prefersDark }),
+    ...(options.desktopPlatform === undefined
+      ? {}
+      : { desktopBridge: {}, navigator: { platform: options.desktopPlatform } }),
   };
 
   const fakeCss = {
@@ -98,6 +103,7 @@ function runBootScript(options: {
     backgroundColor: documentElement.style.backgroundColor,
     bootVariables,
     metaContent: meta.content,
+    classes,
   };
 }
 
@@ -255,6 +261,26 @@ describe("index.html boot script", () => {
   it.each(parityCases)("matches the runtime appearance: $name", ({ storage, prefersDark }) => {
     const boot = runBootScript({ storage, prefersDark });
     expect(boot.isDark).toBe(runtimeResolvedAppearance(storage, prefersDark) === "dark");
+  });
+
+  it("leaves the boot background unpainted in the macOS desktop shell", () => {
+    const macos = runBootScript({
+      storage: { [THEME_STORAGE_KEY]: "t3-chat" },
+      prefersDark: true,
+      desktopPlatform: "MacIntel",
+    });
+    expect(macos.classes.has("electron-macos")).toBe(true);
+    expect(macos.backgroundColor).toBe("");
+    // The theme-color meta still reports the chrome color it would have painted.
+    expect(macos.metaContent).not.toBe(null);
+
+    const windows = runBootScript({
+      storage: { [THEME_STORAGE_KEY]: "t3-chat" },
+      prefersDark: true,
+      desktopPlatform: "Win32",
+    });
+    expect(windows.classes.has("electron-macos")).toBe(false);
+    expect(windows.backgroundColor).not.toBe("");
   });
 
   it("marks built-in and custom themes on the document element", () => {

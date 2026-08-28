@@ -432,6 +432,19 @@ describe("DesktopWindow", () => {
     );
   });
 
+  it("gives the macOS main window a transparent surface so its vibrancy shows", () => {
+    assert.deepEqual(DesktopWindow.getMainWindowSurfaceOptions(true, "darwin"), {
+      backgroundColor: "#00000000",
+      vibrancy: "sidebar",
+    });
+    assert.deepEqual(DesktopWindow.getMainWindowSurfaceOptions(true, "win32"), {
+      backgroundColor: "#0a0a0a",
+    });
+    assert.deepEqual(DesktopWindow.getMainWindowSurfaceOptions(false, "linux"), {
+      backgroundColor: "#ffffff",
+    });
+  });
+
   it.effect("does not open a development window until the backend is ready", () =>
     Effect.gen(function* () {
       const fakeWindow = makeFakeBrowserWindow();
@@ -457,6 +470,8 @@ describe("DesktopWindow", () => {
         assert.isUndefined(createdWindowOptions[0]?.x);
         assert.isUndefined(createdWindowOptions[0]?.y);
         assert.isTrue(createdWindowOptions[0]?.disableAutoHideCursor);
+        assert.equal(createdWindowOptions[0]?.backgroundColor, "#00000000");
+        assert.equal(createdWindowOptions[0]?.vibrancy, "sidebar");
         assert.isFalse(createdWindowOptions[0]?.webPreferences?.backgroundThrottling);
         assert.deepEqual(fakeWindow.setAutoHideCursor.mock.calls, [[false]]);
         assert.deepEqual(fakeWindow.loadURL.mock.calls[0], ["m3code-dev://app/"]);

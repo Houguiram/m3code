@@ -82,6 +82,24 @@ describe("ClientSettings glass opacity", () => {
   });
 });
 
+describe("ClientSettings sidebar transparency", () => {
+  it("defaults to the original macOS sidebar tint", () => {
+    expect(decodeClientSettings({}).sidebarTransparency).toBe(50);
+  });
+
+  it.each([-1, 101, 72.5])("rejects an invalid sidebar transparency: %s", (value) => {
+    expect(() => decodeClientSettings({ sidebarTransparency: value })).toThrow();
+    expect(() => decodeClientSettingsPatch({ sidebarTransparency: value })).toThrow();
+  });
+
+  it.each([0, 50, 100])("accepts sidebar transparency within the supported range: %s", (value) => {
+    expect(decodeClientSettings({ sidebarTransparency: value }).sidebarTransparency).toBe(value);
+    expect(decodeClientSettingsPatch({ sidebarTransparency: value }).sidebarTransparency).toBe(
+      value,
+    );
+  });
+});
+
 describe("ClientSettings appearance contrast", () => {
   it("defaults to the theme's original contrast", () => {
     expect(decodeClientSettings({}).appearanceContrast).toBe(100);

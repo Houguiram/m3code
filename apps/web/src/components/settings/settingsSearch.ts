@@ -1,4 +1,5 @@
 import { isElectron } from "~/env";
+import { isMacPlatform } from "~/lib/utils";
 
 export type SettingsPath =
   | "/settings/general"
@@ -18,6 +19,7 @@ export interface SettingsSearchItem {
   // Its row only renders in the desktop app, so a browser result would land on
   // an anchor that isn't there.
   readonly desktopOnly?: boolean;
+  readonly macosOnly?: boolean;
 }
 
 /**
@@ -68,6 +70,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "setting-glass-opacity",
     title: "Glass opacity",
     to: "/settings/appearance",
+  },
+  {
+    // Prefixed because the slider control already owns the `sidebar-transparency` id.
+    id: "setting-sidebar-transparency",
+    title: "Sidebar transparency",
+    to: "/settings/appearance",
+    macosOnly: true,
   },
   {
     id: "environment-identification",
@@ -293,6 +302,8 @@ export function searchSettings(
   return items.filter(
     (item) =>
       (isElectron || item.desktopOnly !== true) &&
+      (item.macosOnly !== true ||
+        (isElectron && typeof navigator !== "undefined" && isMacPlatform(navigator.platform))) &&
       normalizeSearchText(item.title).includes(normalizedQuery),
   );
 }

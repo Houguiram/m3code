@@ -31,6 +31,12 @@ import { makeQuitHoldHandler } from "./QuitHold.ts";
 
 const TITLEBAR_HEIGHT = 40;
 const TITLEBAR_COLOR = "#01000000"; // #00000000 does not work correctly on Linux
+// macOS backs the window with an AppKit vibrancy view ("sidebar" material, the
+// one Finder and Mail use for their source lists). It only shows through where
+// the renderer paints nothing, so the window background has to carry alpha; the
+// renderer thins out the left panel and keeps content surfaces opaque.
+const MACOS_SIDEBAR_VIBRANCY = "sidebar";
+const MACOS_VIBRANT_BACKGROUND_COLOR = "#00000000";
 const TITLEBAR_LIGHT_SYMBOL_COLOR = "#1f2937";
 const TITLEBAR_DARK_SYMBOL_COLOR = "#f8fafc";
 const MAIN_WINDOW_BOUNDS_PERSIST_DEBOUNCE_MS = 500;
@@ -127,6 +133,22 @@ function getIconOption(
 
 function getInitialWindowBackgroundColor(shouldUseDarkColors: boolean): string {
   return shouldUseDarkColors ? "#0a0a0a" : "#ffffff";
+}
+
+// The main window's surface: an opaque appearance-matched background, except on
+// macOS where it carries alpha so the vibrancy view behind it is visible.
+export function getMainWindowSurfaceOptions(
+  shouldUseDarkColors: boolean,
+  platform: NodeJS.Platform,
+) {
+  if (platform === "darwin") {
+    return {
+      backgroundColor: MACOS_VIBRANT_BACKGROUND_COLOR,
+      vibrancy: MACOS_SIDEBAR_VIBRANCY,
+    } as const;
+  }
+
+  return { backgroundColor: getInitialWindowBackgroundColor(shouldUseDarkColors) } as const;
 }
 
 type DisplayBounds = Pick<Electron.Rectangle, "x" | "y" | "width" | "height">;
@@ -235,6 +257,12 @@ function syncWindowAppearance(
 ): Effect.Effect<void> {
   return Effect.sync(() => {
     if (window.isDestroyed()) {
+      return;
+    }
+
+    // macOS windows stay transparent so the vibrancy view shows through, and
+    // their title bar is native, so a theme flip has nothing to re-apply.
+    if (platform === "darwin") {
       return;
     }
 
@@ -353,7 +381,7 @@ export const make = Effect.gen(function* () {
       show: false,
       autoHideMenuBar: true,
       ...(environment.platform === "darwin" ? { disableAutoHideCursor: true } : {}),
-      backgroundColor: getInitialWindowBackgroundColor(shouldUseDarkColors),
+      ...getMainWindowSurfaceOptions(shouldUseDarkColors, environment.platform),
       ...iconOption,
       title: environment.displayName,
       ...getWindowTitleBarOptions(shouldUseDarkColors, environment.platform),
