@@ -367,6 +367,18 @@ export interface PullRequestProviderApi {
   ) => Effect.Effect<void, PullRequestProviderError>;
 
   /**
+   * Add or remove one host label. Optional because this is a GitHub-only integration point used
+   * by Graphite's label-driven merge queue.
+   */
+  readonly setLabel?: (
+    input: ProviderRepositoryRef & {
+      readonly number: number;
+      readonly label: string;
+      readonly present: boolean;
+    },
+  ) => Effect.Effect<void, PullRequestProviderError>;
+
+  /**
    * Rewrites the change request's own words. Only called when `capabilities.edit.changeRequest`
    * is true, and never with both fields absent — the caller refuses that before it gets here,
    * because a host asked to change nothing answers differently on each of them.

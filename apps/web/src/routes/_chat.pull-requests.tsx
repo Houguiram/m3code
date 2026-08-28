@@ -1252,6 +1252,20 @@ function PullRequestsRouteView() {
     }
     return [...byHost.values()];
   }, [projects]);
+  const graphiteProjectKeys = useMemo(
+    () =>
+      new Set(
+        projects
+          .filter((project) => project.graphite != null)
+          .map((project) =>
+            pullRequestProjectKey({
+              id: project.id,
+              environmentId: project.environmentId,
+            }),
+          ),
+      ),
+    [projects],
+  );
 
   /** Reported per project rather than as a count, so the reader can see which one it was. */
   const unavailableProjects = useMemo(
@@ -1374,6 +1388,12 @@ function PullRequestsRouteView() {
                   // them for later takes whatever has arrived since, and draws without them
                   // until it does.
                   entry={withDiffStat(entry, statsByRow)}
+                  preferGraphite={graphiteProjectKeys.has(
+                    pullRequestProjectKey({
+                      id: entry.projectId,
+                      environmentId: entry.environmentId,
+                    }),
+                  )}
                   showProjectTitle
                   showProvider={showProvider}
                   {...(capableEnvironments.length > 1 &&

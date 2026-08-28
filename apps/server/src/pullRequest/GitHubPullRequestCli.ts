@@ -487,6 +487,15 @@ export class GitHubPullRequestCli extends Context.Service<
       readonly updateMethod?: PullRequestUpdateMethod;
     }) => Effect.Effect<void, GitHubPullRequestCliError>;
 
+    readonly setPullRequestLabel: (input: {
+      readonly cwd: string;
+      readonly repository: string;
+      readonly host: string;
+      readonly number: number;
+      readonly label: string;
+      readonly present: boolean;
+    }) => Effect.Effect<void, GitHubPullRequestCliError>;
+
     readonly commentOnPullRequest: (input: {
       readonly cwd: string;
       readonly repository: string;
@@ -662,8 +671,8 @@ function matchesFilters(
   viewer: string,
 ): boolean {
   if (filters === undefined) return true;
-  const labels = item.labels.map((label) => label.name.trim().toLowerCase());
-  const holds = (label: string) => labels.includes(label.trim().toLowerCase());
+  const labels = new Set(item.labels.map((label) => label.name.trim().toLowerCase()));
+  const holds = (label: string) => labels.has(label.trim().toLowerCase());
   return (
     (filters.draft === undefined || item.isDraft === (filters.draft === "only")) &&
     (filters.review === undefined ||
@@ -1709,6 +1718,21 @@ export const make = Effect.gen(function* () {
         })
         .pipe(Effect.asVoid);
     },
+
+    setPullRequestLabel: (input) =>
+      github
+        .execute({
+          cwd: input.cwd,
+          args: [
+            "pr",
+            "edit",
+            String(input.number),
+            ...repositoryArgs(input),
+            input.present ? "--add-label" : "--remove-label",
+            input.label,
+          ],
+        })
+        .pipe(Effect.asVoid),
 
     commentOnPullRequest: (input) =>
       github

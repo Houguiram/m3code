@@ -1016,6 +1016,29 @@ it.effect("project favicon overrides accept only supported image files", () =>
   }),
 );
 
+it.effect("project Graphite configuration accepts a preferred surface with an optional queue", () =>
+  Effect.gen(function* () {
+    const withoutQueue = yield* decodeOrchestrationCommand({
+      type: "project.meta.update",
+      commandId: "cmd-project-graphite",
+      projectId: "project-1",
+      graphite: { mergeQueueLabel: null },
+    });
+    assert.strictEqual(withoutQueue.type, "project.meta.update");
+
+    const withQueue = yield* decodeOrchestrationCommand({
+      type: "project.meta.update",
+      commandId: "cmd-project-graphite-queue",
+      projectId: "project-1",
+      graphite: { mergeQueueLabel: "  merge-queue  " },
+    });
+    if (withQueue.type !== "project.meta.update") {
+      throw new Error("Expected a project metadata update");
+    }
+    assert.deepStrictEqual(withQueue.graphite, { mergeQueueLabel: "merge-queue" });
+  }),
+);
+
 it("isProviderSendTurnSupportedImageMimeType accepts raster formats and rejects svg", () => {
   assert.strictEqual(isProviderSendTurnSupportedImageMimeType("image/png"), true);
   assert.strictEqual(isProviderSendTurnSupportedImageMimeType("IMAGE/JPEG"), true);

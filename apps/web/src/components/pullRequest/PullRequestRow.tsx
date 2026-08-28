@@ -22,6 +22,7 @@ function PullRequestRowImpl({
   showProvider,
   environmentLabel,
   matchedElsewhere,
+  preferGraphite = false,
   onSelect,
 }: {
   entry: EnvironmentPullRequestEntry;
@@ -36,6 +37,7 @@ function PullRequestRowImpl({
    * commit message. Saying so is the difference between a result and an apparently random row.
    */
   matchedElsewhere?: boolean;
+  preferGraphite?: boolean;
   onSelect: (entry: EnvironmentPullRequestEntry) => void;
 }) {
   const { Icon, providerName } = getSourceControlPresentationForKind(entry.provider);
@@ -80,6 +82,7 @@ function PullRequestRowImpl({
                 void showPullRequestLinkContextMenu({
                   url: entry.url,
                   openLabel: openOnHostLabel(entry.provider),
+                  preferGraphite,
                   position: { x: event.clientX, y: event.clientY },
                 });
               }}

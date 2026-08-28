@@ -271,12 +271,14 @@ function ActOnEnvironmentPicker({
 const openNumberContextMenu = (
   event: ReactMouseEvent,
   detail: { readonly url: string; readonly provider: string },
+  preferGraphite: boolean,
 ): void => {
   event.preventDefault();
   event.stopPropagation();
   void showPullRequestLinkContextMenu({
     url: detail.url,
     openLabel: openOnHostLabel(detail.provider),
+    preferGraphite,
     position: { x: event.clientX, y: event.clientY },
   });
 };
@@ -457,7 +459,7 @@ export function PullRequestDetailPanel({
   const [mergeMethod, setMergeMethod] = useState<PullRequestMergeMethod>("merge");
   const [confirmation, setConfirmation] = useState<{
     readonly open: boolean;
-    readonly action: "merge" | "close" | "enable-auto-merge";
+    readonly action: "merge" | "merge-bypass" | "close" | "enable-auto-merge";
   }>({ open: false, action: "merge" });
   const confirmAction = confirmation.action;
   // Which handoff is preparing, keyed so a per-finding button can say "Preparing..." on itself
@@ -505,8 +507,17 @@ export function PullRequestDetailPanel({
           },
     [activity, coreDetail],
   );
+  const projects = useProjects();
+  const project =
+    projects.find(
+      (candidate) =>
+        candidate.environmentId === environmentId && candidate.id === reference.projectId,
+    ) ?? null;
   const repositoryUrl = detail === null ? null : changeRequestRepositoryUrl(detail.url);
   const graphiteUrl = detail === null ? null : graphitePullRequestUrl(detail.url);
+  const prefersGraphite = project?.graphite != null && graphiteUrl !== null;
+  const preferredPullRequestUrl = prefersGraphite ? graphiteUrl : detail?.url;
+  const mergeQueueLabel = prefersGraphite ? (project?.graphite?.mergeQueueLabel ?? null) : null;
   const branchRefsQuery = useEnvironmentQuery(
     detail === null
       ? null
@@ -591,7 +602,6 @@ export function PullRequestDetailPanel({
   const [titleSaving, setTitleSaving] = useState(false);
   const newThread = useNewThreadHandler();
   const { environments } = useEnvironments();
-  const projects = useProjects();
   // Beside a thread there is nothing to pick: the hand-offs land in that thread's composer, and
   // the thread is already on one server's copy of the branch.
   const pickableEnvironments = useMemo(
@@ -627,6 +637,7 @@ export function PullRequestDetailPanel({
     action: PullRequestAction,
     method?: PullRequestMergeMethod,
     updateMethod?: PullRequestUpdateMethod,
+    bypassGraphiteMergeQueue = false,
   ) => {
     if (pendingAction !== null) return;
     setPendingAction(action);
@@ -637,6 +648,7 @@ export function PullRequestDetailPanel({
         action,
         ...(method ? { mergeMethod: method } : {}),
         ...(updateMethod ? { updateMethod } : {}),
+        ...(bypassGraphiteMergeQueue ? { bypassGraphiteMergeQueue: true } : {}),
       },
     });
     setPendingAction(null);
@@ -651,21 +663,35 @@ export function PullRequestDetailPanel({
       const hint =
         updateMethod === "rebase"
           ? UPDATE_BRANCH_REBASE_FAILURE_HINT
-          : ACTION_FAILURE_HINTS[action];
+          : action === "merge" && mergeQueueLabel !== null && !bypassGraphiteMergeQueue
+            ? "Check that the label exists, that you have write access, and that your Graphite account can use this repository's merge queue."
+            : ACTION_FAILURE_HINTS[action];
       toastManager.add({
         type: "error",
-        title: ACTION_FAILURE_LABELS[action],
+        title:
+          action === "merge" && mergeQueueLabel !== null && !bypassGraphiteMergeQueue
+            ? "Could not update Graphite merge queue"
+            : ACTION_FAILURE_LABELS[action],
         description: readableFailure(failure, hint),
       });
       return;
     }
-    toastManager.add({ type: "success", title: ACTION_SUCCESS_LABELS[action] });
+    toastManager.add({
+      type: "success",
+      title:
+        action === "merge" && mergeQueueLabel !== null && !bypassGraphiteMergeQueue
+          ? "Graphite merge queue updated"
+          : ACTION_SUCCESS_LABELS[action],
+    });
     // A branch update moves the head commit, which leaves the diff atom pointed at a comparison
     // that no longer exists — the same staleness the manual refresh button fixes, so it goes
     // through that path rather than a second one. Every other action here only changes metadata;
     // a merge does move the branch too, but it also closes the pull request, where the diff is
     // no longer what anyone is looking at.
-    if (pullRequestActionNeedsHostRefresh(action)) {
+    if (
+      pullRequestActionNeedsHostRefresh(action) ||
+      (action === "merge" && mergeQueueLabel !== null && !bypassGraphiteMergeQueue)
+    ) {
       void refreshFromHost();
     } else {
       refreshDetail();
@@ -1028,6 +1054,10 @@ export function PullRequestDetailPanel({
     ? mergeMethod
     : (allowedMergeMethods[0] ?? "merge");
   const selectedMergeMethodLabel = MERGE_METHOD_LABELS[selectedMergeMethod];
+  const queuedInGraphite =
+    detail !== null &&
+    mergeQueueLabel !== null &&
+    detail.labels.some((label) => label.name.toLowerCase() === mergeQueueLabel.toLowerCase());
   const conflicting = detail?.state === "open" && detail.mergeability === "conflicting";
   // Only an outright yes arms it. A host that reports nothing has not said the merge is already
   // spoken for, and an off switch for something that may not be on says the wrong thing twice.
@@ -1074,6 +1104,7 @@ export function PullRequestDetailPanel({
     !(detail.isDraft && primaryAction === "ready");
   const showsAutoMerge =
     detail?.state === "open" &&
+    mergeQueueLabel === null &&
     ((autoMergeArmed && can("disable-auto-merge")) ||
       (!autoMergeArmed &&
         !detail.isDraft &&
@@ -1082,10 +1113,18 @@ export function PullRequestDetailPanel({
         allowedMergeMethods.length > 0));
   const showsMergeMethods =
     detail?.state === "open" &&
+    mergeQueueLabel === null &&
     can("merge") &&
     !detail.isDraft &&
     !conflicting &&
     allowedMergeMethods.length > 1;
+  const showsNativeMergeBypass =
+    mergeQueueLabel !== null &&
+    detail?.state === "open" &&
+    can("merge") &&
+    !detail.isDraft &&
+    !conflicting &&
+    allowedMergeMethods.length > 0;
   // The pull request number carries this state in the overview and the right-panel tab mirrors
   // it. The conflict action is separate from this state: an open pull request remains green.
   const statePresentation = detail
@@ -1154,8 +1193,14 @@ export function PullRequestDetailPanel({
                     render={
                       <button
                         type="button"
-                        onClick={() => void readLocalApi()?.shell.openExternal(detail.url)}
-                        onContextMenu={(event) => openNumberContextMenu(event, detail)}
+                        onClick={() =>
+                          void readLocalApi()?.shell.openExternal(
+                            preferredPullRequestUrl ?? detail.url,
+                          )
+                        }
+                        onContextMenu={(event) =>
+                          openNumberContextMenu(event, detail, prefersGraphite)
+                        }
                         className={cn(
                           "shrink-0 font-medium underline-offset-2 hover:underline",
                           statePresentation.toneClassName,
@@ -1166,7 +1211,9 @@ export function PullRequestDetailPanel({
                       </button>
                     }
                   />
-                  <TooltipPopup side="top">{openOnHostLabel(detail.provider)}</TooltipPopup>
+                  <TooltipPopup side="top">
+                    {prefersGraphite ? "Open in Graphite" : openOnHostLabel(detail.provider)}
+                  </TooltipPopup>
                 </Tooltip>
               </>
             ) : null}
@@ -1189,8 +1236,14 @@ export function PullRequestDetailPanel({
                       <button
                         type="button"
                         tabIndex={condensed ? 0 : -1}
-                        onClick={() => void readLocalApi()?.shell.openExternal(detail.url)}
-                        onContextMenu={(event) => openNumberContextMenu(event, detail)}
+                        onClick={() =>
+                          void readLocalApi()?.shell.openExternal(
+                            preferredPullRequestUrl ?? detail.url,
+                          )
+                        }
+                        onContextMenu={(event) =>
+                          openNumberContextMenu(event, detail, prefersGraphite)
+                        }
                         className={cn(
                           "shrink-0 font-medium underline-offset-2 hover:underline",
                           statePresentation.toneClassName,
@@ -1201,7 +1254,9 @@ export function PullRequestDetailPanel({
                       </button>
                     }
                   />
-                  <TooltipPopup side="top">{openOnHostLabel(detail.provider)}</TooltipPopup>
+                  <TooltipPopup side="top">
+                    {prefersGraphite ? "Open in Graphite" : openOnHostLabel(detail.provider)}
+                  </TooltipPopup>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger
@@ -1307,7 +1362,15 @@ export function PullRequestDetailPanel({
                   disabled={actionPending}
                   onClick={() => setConfirmation({ open: true, action: "merge" })}
                 >
-                  {pendingAction === "merge" ? "Merging..." : selectedMergeMethodLabel}
+                  {pendingAction === "merge"
+                    ? mergeQueueLabel !== null
+                      ? "Updating queue..."
+                      : "Merging..."
+                    : mergeQueueLabel !== null
+                      ? queuedInGraphite
+                        ? "Remove from queue"
+                        : "Add to queue"
+                      : selectedMergeMethodLabel}
                 </Button>
               ) : null}
               <Menu>
@@ -1384,7 +1447,7 @@ export function PullRequestDetailPanel({
                           of it, because the reader who can wait and the reader who cannot are
                           the same person on different days — and a conflicting branch is neither,
                           since nothing the host waits for will clear it. */}
-                      {autoMergeArmed && can("disable-auto-merge") ? (
+                      {mergeQueueLabel === null && autoMergeArmed && can("disable-auto-merge") ? (
                         <MenuItem
                           disabled={actionPending}
                           onClick={() => void perform("disable-auto-merge")}
@@ -1392,7 +1455,8 @@ export function PullRequestDetailPanel({
                           <GitMergeIcon className="size-3.5" />
                           Disable auto-merge
                         </MenuItem>
-                      ) : !autoMergeArmed &&
+                      ) : mergeQueueLabel === null &&
+                        !autoMergeArmed &&
                         !detail.isDraft &&
                         !conflicting &&
                         can("enable-auto-merge") &&
@@ -1437,26 +1501,59 @@ export function PullRequestDetailPanel({
                           </MenuRadioGroup>
                         </>
                       ) : null}
+                      {showsNativeMergeBypass
+                        ? allowedMergeMethods.map((method) => (
+                            <MenuItem
+                              key={method}
+                              disabled={actionPending}
+                              onClick={() => {
+                                setMergeMethod(method);
+                                setConfirmation({ open: true, action: "merge-bypass" });
+                              }}
+                            >
+                              <GitMergeIcon className="size-3.5" />
+                              Merge on GitHub ({MERGE_METHOD_LABELS[method]})
+                            </MenuItem>
+                          ))
+                        : null}
                       {pullRequestActionMenuHasGroup(
                         showsDraftToggle,
                         showsAutoMerge,
-                        showsMergeMethods,
+                        showsMergeMethods || showsNativeMergeBypass,
                       ) ? (
                         <MenuSeparator />
                       ) : null}
                     </>
                   ) : null}
-                  <MenuItem onClick={() => void readLocalApi()?.shell.openExternal(detail.url)}>
+                  <MenuItem
+                    onClick={() =>
+                      void readLocalApi()?.shell.openExternal(
+                        prefersGraphite ? (graphiteUrl ?? detail.url) : detail.url,
+                      )
+                    }
+                  >
                     <ArrowUpRightIcon className="size-3.5" />
-                    {openOnHostLabel(detail.provider)}
+                    {prefersGraphite ? "Open in Graphite" : openOnHostLabel(detail.provider)}
                   </MenuItem>
                   {graphiteUrl !== null ? (
-                    <MenuItem onClick={() => void readLocalApi()?.shell.openExternal(graphiteUrl)}>
+                    <MenuItem
+                      onClick={() =>
+                        void readLocalApi()?.shell.openExternal(
+                          prefersGraphite ? detail.url : graphiteUrl,
+                        )
+                      }
+                    >
                       <ArrowUpRightIcon className="size-3.5" />
-                      Open in Graphite
+                      {prefersGraphite ? openOnHostLabel(detail.provider) : "Open in Graphite"}
                     </MenuItem>
                   ) : null}
-                  <MenuItem onClick={() => void writeTextToClipboard(detail.url)}>
+                  <MenuItem
+                    onClick={() =>
+                      void writeTextToClipboard(
+                        prefersGraphite && graphiteUrl !== null ? graphiteUrl : detail.url,
+                      )
+                    }
+                  >
                     <LinkIcon className="size-3.5" />
                     Copy link
                   </MenuItem>
@@ -1988,20 +2085,30 @@ export function PullRequestDetailPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmAction === "merge"
-                ? "Merge pull request?"
-                : confirmAction === "enable-auto-merge"
-                  ? "Enable auto-merge?"
-                  : "Close pull request?"}
+                ? mergeQueueLabel !== null
+                  ? queuedInGraphite
+                    ? "Remove from merge queue?"
+                    : "Add to merge queue?"
+                  : "Merge pull request?"
+                : confirmAction === "merge-bypass"
+                  ? "Merge directly on GitHub?"
+                  : confirmAction === "enable-auto-merge"
+                    ? "Enable auto-merge?"
+                    : "Close pull request?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === "merge"
-                ? `This merges #${reference.number} using ${selectedMergeMethod}.`
-                : confirmAction === "enable-auto-merge"
-                  ? // The host merges this as soon as it considers the pull request ready, which
-                    // may be immediately — there is no telling from here whether anything is
-                    // still outstanding.
-                    `This merges #${reference.number} using ${selectedMergeMethod} as soon as the host considers it ready, which may be immediately.`
-                  : `This closes #${reference.number} without merging it.`}
+                ? mergeQueueLabel !== null
+                  ? `This ${queuedInGraphite ? "removes" : "adds"} the “${mergeQueueLabel}” label on #${reference.number}.`
+                  : `This merges #${reference.number} using ${selectedMergeMethod}.`
+                : confirmAction === "merge-bypass"
+                  ? `This bypasses Graphite and merges #${reference.number} on GitHub using ${selectedMergeMethod}.`
+                  : confirmAction === "enable-auto-merge"
+                    ? // The host merges this as soon as it considers the pull request ready, which
+                      // may be immediately — there is no telling from here whether anything is
+                      // still outstanding.
+                      `This merges #${reference.number} using ${selectedMergeMethod} as soon as the host considers it ready, which may be immediately.`
+                    : `This closes #${reference.number} without merging it.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2015,17 +2122,27 @@ export function PullRequestDetailPanel({
               onClick={() => {
                 const action = confirmAction;
                 setConfirmation((current) => ({ ...current, open: false }));
-                if (action === "merge") void perform("merge", selectedMergeMethod);
+                if (action === "merge") {
+                  void perform("merge", mergeQueueLabel === null ? selectedMergeMethod : undefined);
+                }
+                if (action === "merge-bypass")
+                  void perform("merge", selectedMergeMethod, undefined, true);
                 if (action === "enable-auto-merge")
                   void perform("enable-auto-merge", selectedMergeMethod);
                 if (action === "close") void perform("close");
               }}
             >
               {confirmAction === "merge"
-                ? selectedMergeMethodLabel
-                : confirmAction === "enable-auto-merge"
-                  ? "Enable auto-merge"
-                  : "Close"}
+                ? mergeQueueLabel !== null
+                  ? queuedInGraphite
+                    ? "Remove from queue"
+                    : "Add to queue"
+                  : selectedMergeMethodLabel
+                : confirmAction === "merge-bypass"
+                  ? `Merge on GitHub (${selectedMergeMethodLabel})`
+                  : confirmAction === "enable-auto-merge"
+                    ? "Enable auto-merge"
+                    : "Close"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogPopup>

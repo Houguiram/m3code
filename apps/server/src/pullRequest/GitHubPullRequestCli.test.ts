@@ -1089,6 +1089,49 @@ layer("GitHubPullRequestCli.layer", (it) => {
     }),
   );
 
+  it.effect("adds and removes the configured merge queue label", () =>
+    Effect.gen(function* () {
+      mockedExecute.mockReturnValue(Effect.succeed(output("")));
+      const cli = yield* GitHubPullRequestCli.GitHubPullRequestCli;
+
+      yield* cli.setPullRequestLabel({
+        cwd: "/w",
+        repository: "acme/web",
+        host: "github.com",
+        number: 7,
+        label: "ship-it",
+        present: true,
+      });
+      yield* cli.setPullRequestLabel({
+        cwd: "/w",
+        repository: "acme/web",
+        host: "github.com",
+        number: 7,
+        label: "ship-it",
+        present: false,
+      });
+
+      expect(callAt(0).args).toEqual([
+        "pr",
+        "edit",
+        "7",
+        "--repo",
+        "github.com/acme/web",
+        "--add-label",
+        "ship-it",
+      ]);
+      expect(callAt(1).args).toEqual([
+        "pr",
+        "edit",
+        "7",
+        "--repo",
+        "github.com/acme/web",
+        "--remove-label",
+        "ship-it",
+      ]);
+    }),
+  );
+
   it.effect("arms auto-merge with the same strategy a merge would have used", () =>
     Effect.gen(function* () {
       mockedExecute.mockReturnValue(Effect.succeed(output("")));

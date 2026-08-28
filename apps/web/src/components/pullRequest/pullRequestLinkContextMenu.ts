@@ -26,11 +26,18 @@ export const openOnHostLabel = (provider: string): string =>
 export function pullRequestLinkContextMenuItems(
   openLabel: string,
   graphiteUrl: string | null,
+  preferGraphite = false,
 ): readonly ContextMenuItem<PullRequestLinkContextMenuAction>[] {
   return [
     { id: "copy-link", label: "Copy link", icon: "copy" },
-    { id: "open-external", label: openLabel },
-    ...(graphiteUrl === null ? [] : [{ id: "open-graphite" as const, label: "Open in Graphite" }]),
+    ...(preferGraphite && graphiteUrl !== null
+      ? [{ id: "open-graphite" as const, label: "Open in Graphite" }]
+      : [{ id: "open-external" as const, label: openLabel }]),
+    ...(graphiteUrl === null
+      ? []
+      : preferGraphite
+        ? [{ id: "open-external" as const, label: openLabel }]
+        : [{ id: "open-graphite" as const, label: "Open in Graphite" }]),
   ];
 }
 
@@ -46,10 +53,12 @@ export function pullRequestLinkContextMenuItems(
 export async function showPullRequestLinkContextMenu({
   url,
   openLabel,
+  preferGraphite = false,
   position,
 }: {
   readonly url: string;
   readonly openLabel: string;
+  readonly preferGraphite?: boolean;
   readonly position: { readonly x: number; readonly y: number };
 }): Promise<void> {
   const api = readLocalApi();
@@ -58,7 +67,7 @@ export async function showPullRequestLinkContextMenu({
   let action: PullRequestLinkContextMenuAction | null = null;
   try {
     action = await api.contextMenu.show(
-      pullRequestLinkContextMenuItems(openLabel, graphiteUrl),
+      pullRequestLinkContextMenuItems(openLabel, graphiteUrl, preferGraphite),
       position,
     );
   } catch {
@@ -67,8 +76,12 @@ export async function showPullRequestLinkContextMenu({
     return;
   }
   try {
-    if (action === "copy-link") await writeTextToClipboard(url, "link");
-    else if (action === "open-external") await api.shell.openExternal(url);
+    if (action === "copy-link") {
+      await writeTextToClipboard(
+        preferGraphite && graphiteUrl !== null ? graphiteUrl : url,
+        "link",
+      );
+    } else if (action === "open-external") await api.shell.openExternal(url);
     else if (action === "open-graphite" && graphiteUrl !== null) {
       await api.shell.openExternal(graphiteUrl);
     }

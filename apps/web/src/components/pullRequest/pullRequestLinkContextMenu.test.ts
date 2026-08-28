@@ -23,6 +23,20 @@ describe("pull request link context menu", () => {
     ]);
   });
 
+  it("makes Graphite primary while keeping GitHub available for configured projects", () => {
+    expect(
+      pullRequestLinkContextMenuItems(
+        "Open on GitHub",
+        "https://app.graphite.dev/github/pr/t3-oss/t3-code/42",
+        true,
+      ),
+    ).toEqual([
+      { id: "copy-link", label: "Copy link", icon: "copy" },
+      { id: "open-graphite", label: "Open in Graphite" },
+      { id: "open-external", label: "Open on GitHub" },
+    ]);
+  });
+
   it("names every host it knows, and says nothing false about one it does not", () => {
     expect(openOnHostLabel("github")).toBe("Open on GitHub");
     expect(openOnHostLabel("gitlab")).toBe("Open on GitLab");

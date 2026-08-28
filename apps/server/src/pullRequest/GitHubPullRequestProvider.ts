@@ -427,6 +427,18 @@ export const make = Effect.gen(function* () {
         })
         .pipe(Effect.mapError(fail("runAction"))),
 
+    setLabel: (input) =>
+      cli
+        .setPullRequestLabel({
+          cwd: input.cwd,
+          repository: input.repository,
+          host: input.host,
+          number: input.number,
+          label: input.label,
+          present: input.present,
+        })
+        .pipe(Effect.mapError(fail("setLabel"))),
+
     updateChangeRequest: (input) =>
       cli
         .updatePullRequest({

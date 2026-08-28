@@ -442,6 +442,7 @@ function withRateLimitBackoff(
       ? {}
       : { getDiffFileContents: wrap("getDiffFileContents", api.getDiffFileContents) }),
     runAction: interactive("runAction", api.runAction),
+    ...(api.setLabel === undefined ? {} : { setLabel: interactive("setLabel", api.setLabel) }),
     ...(api.updateChangeRequest === undefined
       ? {}
       : {
@@ -1351,6 +1352,47 @@ export const make = Effect.gen(function* () {
                   detail: ACTION_ACCESS_REFUSALS["update-branch"],
                 }),
               );
+            }
+            const mergeQueueLabel =
+              input.action === "merge" &&
+              input.bypassGraphiteMergeQueue !== true &&
+              project.api.kind === "github" &&
+              project.host === "github.com"
+                ? (project.project.graphite?.mergeQueueLabel ?? null)
+                : null;
+            if (mergeQueueLabel !== null) {
+              const setLabel = project.api.setLabel;
+              if (setLabel === undefined) {
+                return Effect.fail(
+                  new PullRequestOperationError({
+                    operation: "runAction",
+                    detail: "This GitHub connection cannot update the Graphite merge queue label.",
+                  }),
+                );
+              }
+              return project.api
+                .getChangeRequest({
+                  cwd: project.project.workspaceRoot,
+                  repository: project.repository,
+                  host: project.host,
+                  number: input.number,
+                })
+                .pipe(
+                  Effect.flatMap((detail) => {
+                    const queued = detail.labels.some(
+                      (label) => label.name.toLowerCase() === mergeQueueLabel.toLowerCase(),
+                    );
+                    return setLabel({
+                      cwd: project.project.workspaceRoot,
+                      repository: project.repository,
+                      host: project.host,
+                      number: input.number,
+                      label: mergeQueueLabel,
+                      present: !queued,
+                    });
+                  }),
+                  Effect.mapError(toPullRequestError("runAction")),
+                );
             }
             return project.api
               .runAction({
