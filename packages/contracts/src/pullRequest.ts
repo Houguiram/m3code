@@ -809,6 +809,11 @@ export const PullRequestActionInput = Schema.Struct({
    * than at the moment it happens. Absent means the host's own default.
    */
   mergeMethod: Schema.optional(PullRequestMergeMethod),
+  /**
+   * Run GitHub's native merge even when this project routes ordinary merges through Graphite.
+   * Optional so older clients keep their existing wire shape and naturally use the project policy.
+   */
+  bypassGraphiteMergeQueue: Schema.optional(Schema.Boolean),
   /** Only read for `update-branch`, where absent means the host's own default. */
   updateMethod: Schema.optional(PullRequestUpdateMethod),
 });

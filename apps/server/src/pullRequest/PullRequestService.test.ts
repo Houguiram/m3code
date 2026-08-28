@@ -28,6 +28,7 @@ function project(input: {
   readonly repository?: string;
   readonly provider?: string;
   readonly host?: string;
+  readonly graphite?: OrchestrationProjectShell["graphite"];
 }): OrchestrationProjectShell {
   // The host defaults from the provider, so a fixture only names one when the point of the
   // test is two hosts of the same kind.
@@ -51,6 +52,7 @@ function project(input: {
         }
       : {}),
     defaultModelSelection: null,
+    ...(input.graphite === undefined ? {} : { graphite: input.graphite }),
     scripts: [],
     createdAt: "2026-07-01T00:00:00Z",
     updatedAt: "2026-07-01T00:00:00Z",
@@ -1014,6 +1016,73 @@ it.effect("refuses an action this viewer may not take, and says what access it t
     // What the author keeps whatever their access is still theirs to take.
     yield* service.runAction({ ...reference, action: "close" });
     assert.strictEqual(ran, "close");
+  }),
+);
+
+it.effect("toggles a configured Graphite merge queue label and preserves an explicit bypass", () =>
+  Effect.gen(function* () {
+    let queued = false;
+    let nativeMerges = 0;
+    const service = yield* makeService({
+      projects: [
+        project({
+          id: "p1",
+          title: "web",
+          workspaceRoot: "/a",
+          repository: "acme/web",
+          graphite: { mergeQueueLabel: "ship-it" },
+        }),
+      ],
+      providers: [
+        fakeProvider("github", {
+          getChangeRequest: () =>
+            Effect.succeed({
+              ...changeRequest(1, "2026-07-02T00:00:00Z"),
+              labels: queued ? [{ name: "ship-it", color: null }] : [],
+              body: "",
+              changedFiles: 1,
+              mergedAt: null,
+              closedAt: null,
+              reviewers: [],
+              checks: [],
+              mergeCapabilities: { merge: true, squash: true, rebase: true },
+              viewerPermissions: {
+                actions: ["merge"],
+                comment: true,
+                resolve: true,
+                verdicts: [],
+                requestReviewers: true,
+              },
+            }),
+          setLabel: ({ label, present }) => {
+            assert.strictEqual(label, "ship-it");
+            queued = present;
+            return Effect.void;
+          },
+          runAction: () => {
+            nativeMerges += 1;
+            return Effect.void;
+          },
+        }),
+      ],
+    });
+    const reference = { projectId: "p1" as ProjectId, repository: "acme/web", number: 1 };
+
+    yield* service.runAction({ ...reference, action: "merge" });
+    assert.isTrue(queued);
+    assert.strictEqual(nativeMerges, 0);
+
+    yield* service.runAction({ ...reference, action: "merge" });
+    assert.isFalse(queued);
+    assert.strictEqual(nativeMerges, 0);
+
+    yield* service.runAction({
+      ...reference,
+      action: "merge",
+      mergeMethod: "merge",
+      bypassGraphiteMergeQueue: true,
+    });
+    assert.strictEqual(nativeMerges, 1);
   }),
 );
 

@@ -15,6 +15,7 @@ import {
 import type {
   ContextMenuItem,
   ModelSelection,
+  ProjectGraphiteConfig,
   ProviderDriverKind,
   SidebarProjectGroupingMode,
   T3ProjectFileScript,
@@ -23,6 +24,7 @@ import type {
 import { resolveEnvModeLabel } from "../BranchToolbar.logic";
 import { createModelSelection } from "@t3tools/shared/model";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@t3tools/shared/keybindings";
+import { detectSourceControlProviderFromRemoteUrl } from "@t3tools/shared/sourceControl";
 import { useCanGoBack, useNavigate } from "@tanstack/react-router";
 import * as Cause from "effect/Cause";
 import { ChevronDownIcon, CopyIcon, PlusIcon, SettingsIcon, Trash2Icon } from "lucide-react";
@@ -94,6 +96,7 @@ import {
   MenuTrigger,
 } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { Switch } from "../ui/switch";
 import { SidebarInset } from "../ui/sidebar";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -365,6 +368,7 @@ function ProjectDetail({ group }: { group: SidebarProjectSnapshot }) {
         defaultModelSelection: ModelSelection | null;
         defaultThreadEnvMode: ThreadEnvMode | null;
         faviconPath: string | null;
+        graphite: ProjectGraphiteConfig | null;
       }>,
       failureTitle: string,
     ): Promise<AtomCommandResult<void, unknown>> => {
@@ -464,6 +468,18 @@ function ProjectDetail({ group }: { group: SidebarProjectSnapshot }) {
         setIsSavingFavicon(false);
       }
     },
+    [updateAllMembers],
+  );
+
+  // ----- pull request surface -----
+  const graphite = representative.graphite ?? null;
+  const supportsGraphite =
+    detectSourceControlProviderFromRemoteUrl(
+      representative.repositoryIdentity?.locator.remoteUrl ?? "",
+    )?.baseUrl === "https://github.com";
+  const setGraphite = useCallback(
+    (next: ProjectGraphiteConfig | null) =>
+      void updateAllMembers({ graphite: next }, "Failed to update Graphite settings"),
     [updateAllMembers],
   );
 
@@ -824,6 +840,71 @@ function ProjectDetail({ group }: { group: SidebarProjectSnapshot }) {
             }
           />
         </SettingsSection>
+
+        {supportsGraphite ? (
+          <SettingsSection title="Pull requests">
+            <SettingsRow
+              title="Open in Graphite"
+              description="Use Graphite as the default review surface. GitHub remains the source-control host and is still available from pull request menus."
+              control={
+                <Switch
+                  aria-label="Open pull requests in Graphite"
+                  checked={graphite !== null}
+                  onCheckedChange={(checked) =>
+                    setGraphite(checked ? { mergeQueueLabel: null } : null)
+                  }
+                />
+              }
+            />
+            {graphite !== null ? (
+              <>
+                <SettingsRow
+                  title="Graphite merge queue"
+                  description="Replace the primary merge action with adding or removing Graphite's configured GitHub label."
+                  control={
+                    <Switch
+                      aria-label="Use Graphite merge queue"
+                      checked={graphite.mergeQueueLabel !== null}
+                      onCheckedChange={(checked) =>
+                        setGraphite({
+                          mergeQueueLabel: checked ? "merge-queue" : null,
+                        })
+                      }
+                    />
+                  }
+                />
+                {graphite.mergeQueueLabel !== null ? (
+                  <SettingsRow
+                    title="Merge queue label"
+                    description="This must exactly match the label configured in Graphite."
+                    control={
+                      <Input
+                        key={graphite.mergeQueueLabel}
+                        className="w-full sm:w-64"
+                        aria-label="Graphite merge queue label"
+                        defaultValue={graphite.mergeQueueLabel}
+                        maxLength={100}
+                        onBlur={(event) => {
+                          const mergeQueueLabel = event.currentTarget.value.trim();
+                          if (mergeQueueLabel.length === 0) {
+                            event.currentTarget.value = graphite.mergeQueueLabel ?? "merge-queue";
+                            return;
+                          }
+                          if (mergeQueueLabel !== graphite.mergeQueueLabel) {
+                            setGraphite({ mergeQueueLabel });
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") event.currentTarget.blur();
+                        }}
+                      />
+                    }
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </SettingsSection>
+        ) : null}
 
         <SettingsSection title="New threads">
           <SettingsRow
