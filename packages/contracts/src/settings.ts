@@ -75,6 +75,18 @@ export const GlassOpacity = Schema.Int.check(
 );
 export type GlassOpacity = typeof GlassOpacity.Type;
 export const DEFAULT_GLASS_OPACITY: GlassOpacity = 80;
+export const MIN_SIDEBAR_TRANSPARENCY = 0;
+export const MAX_SIDEBAR_TRANSPARENCY = 100;
+export const SidebarTransparency = Schema.Int.check(
+  Schema.isBetween({
+    minimum: MIN_SIDEBAR_TRANSPARENCY,
+    maximum: MAX_SIDEBAR_TRANSPARENCY,
+  }),
+);
+export type SidebarTransparency = typeof SidebarTransparency.Type;
+// Matches the original fixed macOS vibrancy tint: 62% opaque in light mode
+// and 52% opaque in dark mode.
+export const DEFAULT_SIDEBAR_TRANSPARENCY: SidebarTransparency = 50;
 
 export const MIN_APPEARANCE_CONTRAST = 50;
 export const MAX_APPEARANCE_CONTRAST = 200;
@@ -176,6 +188,11 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   glassOpacity: GlassOpacity.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_GLASS_OPACITY)),
+  ),
+  // macOS desktop only. Other clients preserve the preference so it follows
+  // the user between desktop installations, but do not render the effect.
+  sidebarTransparency: SidebarTransparency.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_TRANSPARENCY)),
   ),
   fontSizeInterface: InterfaceFontSize.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_INTERFACE_FONT_SIZE)),
@@ -908,6 +925,7 @@ export const ClientSettingsPatch = Schema.Struct({
   diffIgnoreWhitespace: Schema.optionalKey(Schema.Boolean),
   environmentIdentificationMode: Schema.optionalKey(EnvironmentIdentificationMode),
   glassOpacity: Schema.optionalKey(GlassOpacity),
+  sidebarTransparency: Schema.optionalKey(SidebarTransparency),
   fontSizeInterface: Schema.optionalKey(InterfaceFontSize),
   fontSizePrompt: Schema.optionalKey(PromptFontSize),
   fontSizeCode: Schema.optionalKey(CodeFontSize),

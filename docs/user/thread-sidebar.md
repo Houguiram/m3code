@@ -29,6 +29,16 @@ the send button. Choose **Artwork**, **Version pill**, or **None** in Settings u
 identification. Artwork is recolored to match each built-in theme. Custom themes use the **Version
 pill** fallback because their colors are not controlled by T3 Code.
 
+## Sidebar translucency on macOS
+
+In the macOS desktop app, the sidebar is translucent and blurs whatever sits behind the window, the
+same way the Finder and Mail sidebars do. It keeps the tint of your current theme, and it follows
+light and dark mode. The rest of the window stays opaque. Adjust **Sidebar transparency** in
+Settings → Appearance to make the effect subtler or stronger.
+
+Turn on **Reduce transparency** in System Settings under Accessibility → Display if you would rather
+have a solid sidebar. Other platforms and the browser are unaffected.
+
 To generate a fresh title from the conversation, open a thread's context menu and choose
 **Regenerate title**. While T3 Code is generating it, the action reads **Regenerating…** and cannot
 be selected again. The option is hidden when the connected environment needs a server update.

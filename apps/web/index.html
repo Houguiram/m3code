@@ -201,6 +201,19 @@
               (appearance === value.appearance || isRecord(colors)),
           );
         };
+        // The macOS desktop window is backed by a native vibrancy view that is
+        // only visible where nothing paints over it, so this shell leaves the
+        // document surface unpainted and lets the blur be the boot background.
+        // The class it marks is the same one the app applies once it mounts.
+        const isMacosDesktopShell =
+          window.desktopBridge !== undefined && /mac/i.test(window.navigator?.platform ?? "");
+        if (isMacosDesktopShell) {
+          document.documentElement.classList.add("electron-macos");
+        }
+        const paintChromeBackground = (color) => {
+          if (isMacosDesktopShell) return;
+          document.documentElement.style.backgroundColor = color;
+        };
         const findCustomTheme = (themeId) => {
           if (RESERVED_THEME_IDS.includes(themeId)) return null;
           try {
@@ -376,7 +389,7 @@
               : isDark
                 ? DARK_BACKGROUND
                 : LIGHT_BACKGROUND;
-          document.documentElement.style.backgroundColor = chromeColor;
+          paintChromeBackground(chromeColor);
           if (hasSelection) {
             const splashColors = customSplash ?? builtInSplash ?? fallbackSplash;
             for (const [name, value] of Object.entries(splashColors)) {
@@ -396,7 +409,7 @@
           delete document.documentElement.dataset.themeSelected;
           document.documentElement.classList.toggle("dark", prefersDark);
           const fallbackColor = prefersDark ? DARK_BACKGROUND : LIGHT_BACKGROUND;
-          document.documentElement.style.backgroundColor = fallbackColor;
+          paintChromeBackground(fallbackColor);
           setThemeColor(fallbackColor);
         }
       })();
@@ -451,6 +464,16 @@
         width: 64px;
         height: 64px;
         object-fit: contain;
+      }
+
+      /* Keep the window's vibrancy view visible from the very first frame in the
+         macOS desktop shell; only the logo paints over it. */
+      html.electron-macos,
+      html.electron-macos body,
+      html.electron-macos.dark body,
+      html.electron-macos #boot-shell,
+      html.electron-macos[data-theme-selected="true"] #boot-shell {
+        background: transparent;
       }
     </style>
     <title>M3 Code (Alpha)</title>

@@ -2,6 +2,7 @@ import type { DesktopBridge } from "@t3tools/contracts";
 import { safeErrorLogAttributes } from "@t3tools/client-runtime/errors";
 import * as Schema from "effect/Schema";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { documentHasMacosVibrancy } from "../lib/macosVibrancy";
 import {
   applyThemePalette,
   CUSTOM_THEMES_STORAGE_KEY,
@@ -266,8 +267,13 @@ export function syncBrowserChromeTheme() {
   const backgroundColor = themeChromeColor ?? surfaceColor ?? fallbackColor;
   if (!backgroundColor) return;
 
-  document.documentElement.style.backgroundColor = backgroundColor;
-  document.body.style.backgroundColor = backgroundColor;
+  // The macOS desktop shell keeps the document surface unpainted so the window's
+  // vibrancy view shows through the sidebar; it also has no browser chrome whose
+  // color would need matching. The theme-color meta below still updates.
+  if (!documentHasMacosVibrancy()) {
+    document.documentElement.style.backgroundColor = backgroundColor;
+    document.body.style.backgroundColor = backgroundColor;
+  }
   // Update every theme-color meta so any element another layer added (for
   // example a media-scoped one) carries the resolved color too.
   const themeColorMetas = document.querySelectorAll<HTMLMetaElement>(

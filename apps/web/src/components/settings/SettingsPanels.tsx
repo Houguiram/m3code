@@ -19,6 +19,7 @@ import {
 import {
   DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
   DEFAULT_UNIFIED_SETTINGS,
+  MAX_SIDEBAR_TRANSPARENCY,
   type EnvironmentIdentificationMode,
   MAX_APPEARANCE_CONTRAST,
   MAX_CODE_FONT_SIZE,
@@ -33,6 +34,7 @@ import {
   MIN_INTERFACE_FONT_SIZE,
   MIN_PROMPT_FONT_SIZE,
   MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS,
+  MIN_SIDEBAR_TRANSPARENCY,
   MIN_TERMINAL_FONT_SIZE,
 } from "@t3tools/contracts/settings";
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
@@ -499,6 +501,9 @@ export function useSettingsRestore(onRestored?: () => void) {
         ? ["Contrast"]
         : []),
       ...(settings.glassOpacity !== DEFAULT_UNIFIED_SETTINGS.glassOpacity ? ["Glass opacity"] : []),
+      ...(settings.sidebarTransparency !== DEFAULT_UNIFIED_SETTINGS.sidebarTransparency
+        ? ["Sidebar transparency"]
+        : []),
       ...(settings.environmentIdentificationMode !==
       DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode
         ? ["Environment identification"]
@@ -588,6 +593,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.fontSizePrompt,
       settings.fontSizeTerminal,
       settings.glassOpacity,
+      settings.sidebarTransparency,
       settings.enableLegacyTokenStreaming,
       settings.enableProviderUpdateChecks,
       settings.sidebarAutoSettleAfterDays,
@@ -673,6 +679,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       showSkillsInSlashMenu: DEFAULT_UNIFIED_SETTINGS.showSkillsInSlashMenu,
       environmentIdentificationMode: DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode,
       glassOpacity: DEFAULT_UNIFIED_SETTINGS.glassOpacity,
+      sidebarTransparency: DEFAULT_UNIFIED_SETTINGS.sidebarTransparency,
       sidebarThreadPreviewCount: DEFAULT_UNIFIED_SETTINGS.sidebarThreadPreviewCount,
       sidebarProjectGroupingMode: DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode,
       sidebarAutoSettleAfterDays: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays,
@@ -1010,11 +1017,20 @@ export function AppearanceSettingsPanel() {
   const environmentStageLabel = useEnvironmentStageLabel();
   const showEnvironmentIdentification =
     resolveEnvironmentIdentificationPillLabel(environmentStageLabel) !== null;
+  const showSidebarTransparency =
+    isElectron && typeof navigator !== "undefined" && isMacPlatform(navigator.platform);
   const glassOpacityRatio =
     (settings.glassOpacity - MIN_GLASS_OPACITY) / (MAX_GLASS_OPACITY - MIN_GLASS_OPACITY);
   const glassOpacitySliderStyle = {
     "--settings-slider-progress": `${glassOpacityRatio * 100}%`,
     "--settings-slider-fill-offset": `${0.5 - glassOpacityRatio}rem`,
+  } as CSSProperties;
+  const sidebarTransparencyRatio =
+    (settings.sidebarTransparency - MIN_SIDEBAR_TRANSPARENCY) /
+    (MAX_SIDEBAR_TRANSPARENCY - MIN_SIDEBAR_TRANSPARENCY);
+  const sidebarTransparencySliderStyle = {
+    "--settings-slider-progress": `${sidebarTransparencyRatio * 100}%`,
+    "--settings-slider-fill-offset": `${0.5 - sidebarTransparencyRatio}rem`,
   } as CSSProperties;
   const appearanceContrastRatio =
     (settings.appearanceContrast - MIN_APPEARANCE_CONTRAST) /
@@ -1136,6 +1152,56 @@ export function AppearanceSettingsPanel() {
             </div>
           }
         />
+
+        {showSidebarTransparency ? (
+          <SettingsRow
+            {...searchableSetting("setting-sidebar-transparency")}
+            description="Control how strongly the desktop shows through the native macOS sidebar. Higher values are more transparent."
+            resetAction={
+              settings.sidebarTransparency !== DEFAULT_UNIFIED_SETTINGS.sidebarTransparency ? (
+                <SettingResetButton
+                  label="sidebar transparency"
+                  onClick={() =>
+                    updateSettings({
+                      sidebarTransparency: DEFAULT_UNIFIED_SETTINGS.sidebarTransparency,
+                    })
+                  }
+                />
+              ) : null
+            }
+            control={
+              <div className="flex w-full items-center gap-3 sm:w-52">
+                <output
+                  className="min-w-12 rounded-md bg-muted px-2 py-1 text-center font-mono text-xs font-medium tabular-nums text-foreground"
+                  htmlFor="sidebar-transparency"
+                >
+                  {settings.sidebarTransparency}%
+                </output>
+                <input
+                  aria-label="Sidebar transparency"
+                  className="settings-slider min-w-0 flex-1"
+                  id="sidebar-transparency"
+                  max={MAX_SIDEBAR_TRANSPARENCY}
+                  min={MIN_SIDEBAR_TRANSPARENCY}
+                  onChange={(event) => {
+                    const sidebarTransparency = Number(event.currentTarget.value);
+                    if (
+                      Number.isInteger(sidebarTransparency) &&
+                      sidebarTransparency >= MIN_SIDEBAR_TRANSPARENCY &&
+                      sidebarTransparency <= MAX_SIDEBAR_TRANSPARENCY
+                    ) {
+                      updateSettings({ sidebarTransparency });
+                    }
+                  }}
+                  step={5}
+                  style={sidebarTransparencySliderStyle}
+                  type="range"
+                  value={settings.sidebarTransparency}
+                />
+              </div>
+            }
+          />
+        ) : null}
 
         {showEnvironmentIdentification ? (
           <SettingsRow

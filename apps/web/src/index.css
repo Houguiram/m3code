@@ -2020,6 +2020,47 @@ body {
   --desktop-window-right-resize-inset: 6px;
 }
 
+/* macOS desktop vibrancy. The native window is backed by an AppKit "sidebar"
+   visual effect view, which is only visible where the app paints nothing, so
+   the document itself stops painting chrome and the left panel thins to a tint
+   over the blur. Content surfaces (SidebarInset, sheets, dialogs, popovers)
+   keep their opaque backgrounds, and every other client is unaffected: the
+   class is only set by the macOS desktop shell. */
+.electron-macos,
+.electron-macos body {
+  background-color: transparent;
+}
+
+.electron-macos body {
+  /* The grain belongs to the surfaces that survive here (the sidebar and the
+     main content), not to a full-window layer over the blur. */
+  background-image: none;
+}
+
+.electron-macos [data-app-sidebar] {
+  --sidebar-vibrancy-surface: color-mix(
+    in srgb,
+    var(--sidebar) calc(100% - var(--macos-sidebar-transparency, 50) * 0.76%),
+    transparent
+  );
+  /* The stage artwork fades into the panel surface; fading into the opaque
+     token would leave a hard band where the blur resumes. */
+  --sidebar-stage-fade: var(--sidebar-vibrancy-surface);
+  background-color: transparent;
+
+  @variant dark {
+    --sidebar-vibrancy-surface: color-mix(
+      in srgb,
+      var(--sidebar) calc(100% - var(--macos-sidebar-transparency, 50) * 0.96%),
+      transparent
+    );
+  }
+}
+
+.electron-macos [data-app-sidebar] > [data-slot="sidebar-inner"] {
+  background-color: var(--sidebar-vibrancy-surface);
+}
+
 /* App-chrome grain. Baked into each surface's own background (behind
    content) rather than a fixed overlay on top: a full-viewport overlay
    forces the compositor to re-blend every frame any animation produces,
