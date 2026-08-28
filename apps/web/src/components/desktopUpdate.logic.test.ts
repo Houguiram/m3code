@@ -13,6 +13,7 @@ import {
   shouldShowArm64IntelBuildWarning,
   shouldShowDesktopUpdateButton,
   shouldToastDesktopUpdateActionResult,
+  shouldUseM3CodeLocalRebuild,
 } from "./desktopUpdate.logic";
 
 const baseState: DesktopUpdateState = {
@@ -344,5 +345,19 @@ describe("getDesktopUpdateButtonTooltip", () => {
     expect(getDesktopUpdateButtonTooltip({ ...baseState, status: "up-to-date" })).toBe(
       "Up to date",
     );
+  });
+});
+
+describe("shouldUseM3CodeLocalRebuild", () => {
+  it("replaces the check action when a primary checkout is known", () => {
+    expect(
+      shouldUseM3CodeLocalRebuild({ checkoutPath: "/Users/marin/m3code", action: "none" }),
+    ).toBe(true);
+  });
+
+  it("keeps download and install when a packaged update is already in flight", () => {
+    expect(
+      shouldUseM3CodeLocalRebuild({ checkoutPath: "/Users/marin/m3code", action: "download" }),
+    ).toBe(false);
   });
 });

@@ -23,6 +23,7 @@ import {
   issueSshWebSocketTicket,
   resolveSshPasswordPrompt,
 } from "./methods/sshEnvironment.ts";
+import { openM3CodeLoginTerminalMethod, resolveM3CodeCheckout } from "./methods/m3Code.ts";
 import {
   checkForUpdate,
   downloadUpdate,
@@ -94,6 +95,8 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(downloadUpdate);
   yield* ipc.handle(installUpdate);
   yield* ipc.handle(checkForUpdate);
+  yield* ipc.handle(resolveM3CodeCheckout);
+  yield* ipc.handle(openM3CodeLoginTerminalMethod);
   for (const previewMethod of PreviewIpc.methods) {
     yield* ipc.handle(previewMethod);
   }

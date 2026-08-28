@@ -16,6 +16,7 @@ import {
   resolveDesktopUpdateButtonAction,
   shouldShowArm64IntelBuildWarning,
   shouldToastDesktopUpdateActionResult,
+  shouldUseM3CodeLocalRebuild,
 } from "../desktopUpdate.logic";
 import { showDesktopUpdateDownloadedToast } from "../desktopUpdate.toast";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
@@ -27,6 +28,7 @@ import {
   shouldContinueDesktopUpdateCheckAnimation,
   shouldShowDesktopUpdateCheckIcon,
 } from "./DesktopUpdateStatusIcon";
+import { useM3CodeLocalRebuild } from "../../hooks/useM3CodeLocalRebuild";
 
 function resolveSidebarUpdatePresentation({
   action,
@@ -142,6 +144,7 @@ export function SidebarUpdatePill() {
 
 function SidebarUpdateControl() {
   const state = useDesktopUpdateState();
+  const { checkoutPath, startRebuild } = useM3CodeLocalRebuild();
   const [isActionPending, setIsActionPending] = useState(false);
   const [checkAnimationKey, setCheckAnimationKey] = useState(0);
   const [isCheckAnimationLatched, setIsCheckAnimationLatched] = useState(false);
@@ -156,6 +159,7 @@ function SidebarUpdateControl() {
   }, [prefersReducedMotion, state?.status]);
 
   const action = state ? resolveDesktopUpdateButtonAction(state) : "none";
+  const useLocalRebuild = shouldUseM3CodeLocalRebuild({ checkoutPath, action });
   const isDownloading = state?.status === "downloading";
   const showCheckIcon = shouldShowDesktopUpdateCheckIcon({
     isAnimationLatched: isCheckAnimationLatched,
@@ -173,18 +177,29 @@ function SidebarUpdateControl() {
       : "Update available"
     : showCheckIcon
       ? "Checking for updates…"
-      : "Check for updates";
+      : useLocalRebuild
+        ? `Rebuild local M3 Code from ${checkoutPath}`
+        : "Check for updates";
   const disabled = showCheckIcon
     ? true
     : showUpdateDetails
       ? isDesktopUpdateButtonDisabled(state)
-      : !canCheckForUpdate(state);
+      : useLocalRebuild
+        ? false
+        : !canCheckForUpdate(state);
   const isInteractionDisabled = disabled || isActionPending;
 
   const handleAction = useCallback(async () => {
+    if (isInteractionDisabled) return;
+
+    if (useLocalRebuild) {
+      setIsActionPending(true);
+      void startRebuild().finally(() => setIsActionPending(false));
+      return;
+    }
+
     const bridge = window.desktopBridge;
     if (!bridge || !state) return;
-    if (isInteractionDisabled) return;
 
     setIsActionPending(true);
 
@@ -294,7 +309,7 @@ function SidebarUpdateControl() {
         );
       })
       .finally(() => setIsActionPending(false));
-  }, [action, isInteractionDisabled, prefersReducedMotion, state]);
+  }, [action, isInteractionDisabled, prefersReducedMotion, startRebuild, state, useLocalRebuild]);
 
   const handleCheckAnimationIteration = useCallback(() => {
     setIsCheckAnimationLatched(

@@ -284,6 +284,7 @@ import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
 import { resolveTimelineIsAtEnd } from "./chat/MessagesTimeline.logic";
 import { ChatHeader } from "./chat/ChatHeader";
+import { type M3CodeTerminalCommandOptions } from "./M3CodeActionsControl";
 import { PanelLayoutControls, RightPanelMaximizeControl } from "./chat/PanelLayoutControls";
 import { type ExpandedImagePreview } from "./chat/ExpandedImagePreview";
 import { NoActiveThreadState } from "./NoActiveThreadState";
@@ -366,6 +367,7 @@ import {
 } from "./ChatView.logic";
 import type { ThreadSyncPhase } from "../threadSync";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
+import { useM3CodeCheckoutPath } from "~/hooks/useM3CodeCheckout";
 import { useComposerHandleContext } from "../composerHandleContext";
 import {
   awaitAttachmentUploads,
@@ -1874,6 +1876,7 @@ function ChatViewContent(props: ChatViewProps) {
   // Compute the list of environments this logical project spans, used to
   // drive the environment picker in BranchToolbar.
   const allProjects = useProjects();
+  const { candidatePaths: m3CodeCandidatePaths } = useM3CodeCheckoutPath();
   const primaryEnvironmentId = primaryEnvironment?.environmentId ?? null;
   useEffect(() => {
     if (!activeThreadRef || !activeProjectRef) return;
@@ -3266,6 +3269,25 @@ function ChatViewContent(props: ChatViewProps) {
       terminalUiState.activeTerminalId,
       writeTerminal,
     ],
+  );
+
+  const runTerminalCommand = useCallback(
+    (command: string, options?: M3CodeTerminalCommandOptions) => {
+      void runProjectScript(
+        {
+          id: "m3-action",
+          name: "M3 action",
+          command,
+          icon: "play",
+          runOnWorktreeCreate: false,
+        },
+        {
+          rememberAsLastInvoked: false,
+          ...(options?.preferNewTerminal ? { preferNewTerminal: true } : {}),
+        },
+      );
+    },
+    [runProjectScript],
   );
 
   const persistProjectScripts = useCallback(
@@ -6861,6 +6883,8 @@ function ChatViewContent(props: ChatViewProps) {
             gitCwd={gitCwd}
             onNewThreadInProject={handleNewThreadInActiveProject}
             onRunProjectScript={runProjectScript}
+            onRunTerminalCommand={runTerminalCommand}
+            m3CodeCandidatePaths={m3CodeCandidatePaths}
             onAddProjectScript={saveProjectScript}
             onUpdateProjectScript={updateProjectScript}
             onDeleteProjectScript={deleteProjectScript}

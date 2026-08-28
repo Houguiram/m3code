@@ -47,6 +47,7 @@ import {
   getDesktopUpdateInstallConfirmationMessage,
   isDesktopUpdateButtonDisabled,
   resolveDesktopUpdateButtonAction,
+  shouldUseM3CodeLocalRebuild,
 } from "../../components/desktopUpdate.logic";
 import { ProviderModelPicker } from "../chat/ProviderModelPicker";
 import { TraitsPicker } from "../chat/TraitsPicker";
@@ -66,6 +67,7 @@ import {
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/useSettings";
 import { useThreadActions } from "../../hooks/useThreadActions";
+import { useM3CodeLocalRebuild } from "../../hooks/useM3CodeLocalRebuild";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
 import {
   getCustomModelOptionsByInstance,
@@ -224,6 +226,7 @@ function AboutVersionTitle() {
 
 function AboutVersionSection() {
   const updateState = useDesktopUpdateState();
+  const { checkoutPath, startRebuild } = useM3CodeLocalRebuild();
   const [isChangingUpdateChannel, setIsChangingUpdateChannel] = useState(false);
   const [isUpdateActionPending, setIsUpdateActionPending] = useState(false);
 
@@ -266,6 +269,12 @@ function AboutVersionSection() {
     if (!bridge) return;
 
     const action = updateState ? resolveDesktopUpdateButtonAction(updateState) : "none";
+    if (shouldUseM3CodeLocalRebuild({ checkoutPath, action })) {
+      if (isUpdateActionPending) return;
+      setIsUpdateActionPending(true);
+      void startRebuild().finally(() => setIsUpdateActionPending(false));
+      return;
+    }
 
     if (action === "download") {
       void bridge.downloadUpdate().catch((error: unknown) => {
@@ -344,13 +353,20 @@ function AboutVersionSection() {
           }),
         );
       });
-  }, [isUpdateActionPending, updateState]);
+  }, [checkoutPath, isUpdateActionPending, startRebuild, updateState]);
 
   const action = updateState ? resolveDesktopUpdateButtonAction(updateState) : "none";
-  const buttonTooltip = updateState ? getDesktopUpdateButtonTooltip(updateState) : null;
+  const useLocalRebuild = shouldUseM3CodeLocalRebuild({ checkoutPath, action });
+  const buttonTooltip = useLocalRebuild
+    ? `Rebuild local M3 Code from ${checkoutPath}`
+    : updateState
+      ? getDesktopUpdateButtonTooltip(updateState)
+      : null;
   const buttonDisabled =
     action === "none"
-      ? !canCheckForUpdate(updateState)
+      ? useLocalRebuild
+        ? false
+        : !canCheckForUpdate(updateState)
       : isDesktopUpdateButtonDisabled(updateState);
 
   const actionLabel: Record<string, string> = { download: "Download", install: "Install" };
@@ -359,10 +375,12 @@ function AboutVersionSection() {
     downloading: "Downloading…",
     "up-to-date": "Up to Date",
   };
-  const buttonLabel =
-    actionLabel[action] ?? statusLabel[updateState?.status ?? ""] ?? "Check for Updates";
-  const description =
-    action === "download" || action === "install"
+  const buttonLabel = useLocalRebuild
+    ? "Rebuild from source"
+    : (actionLabel[action] ?? statusLabel[updateState?.status ?? ""] ?? "Check for Updates");
+  const description = useLocalRebuild
+    ? `Sync ${checkoutPath} and run the local desktop installer.`
+    : action === "download" || action === "install"
       ? "Update available."
       : "Current version of the application.";
 
