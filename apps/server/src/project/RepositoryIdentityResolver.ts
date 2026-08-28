@@ -45,10 +45,58 @@ function parseRemoteFetchUrls(stdout: string): Map<string, string> {
   return remotes;
 }
 
+/** `remote.<name>.gh-resolved` lines, keyed by remote, as `git config --get-regexp` prints them. */
+function parseBaseRepositoryDeclarations(stdout: string): Map<string, string> {
+  const declarations = new Map<string, string>();
+  for (const line of stdout.split("\n")) {
+    const match = /^remote\.(.+)\.gh-resolved\s+(\S+)$/.exec(line.trim());
+    const [, remoteName = "", declaration = ""] = match ?? [];
+    if (remoteName.length > 0 && declaration.length > 0) {
+      declarations.set(remoteName, declaration);
+    }
+  }
+  return declarations;
+}
+
+/**
+ * The remote holding the repository this checkout's change requests live in, where the checkout
+ * says which one that is. `gh repo set-default` records it per remote as `gh-resolved`: `base`
+ * means that remote's own repository, and any other value names the repository outright, which is
+ * the parent when a fork defaults to its upstream.
+ *
+ * A fork is either shape — a contributor pushes to their fork and opens change requests against
+ * the parent, while a maintained fork opens them against itself — and only this declaration tells
+ * them apart. The CLIs resolve a bare change request against the same declaration, so honouring it
+ * keeps the repository this identity names and the repository a change request's own URL names as
+ * one repository rather than two.
+ */
+function pickDeclaredBaseRemote(
+  remotes: ReadonlyMap<string, string>,
+  baseDeclarations: ReadonlyMap<string, string>,
+): string | null {
+  const canonicalKeys = new Map(
+    [...remotes].map(([remoteName, remoteUrl]) => [remoteName, normalizeGitRemoteUrl(remoteUrl)]),
+  );
+  for (const [remoteName, declaration] of baseDeclarations) {
+    if (!remotes.has(remoteName)) continue;
+    if (declaration === "base") return remoteName;
+    const declaredKey = normalizeGitRemoteUrl(declaration);
+    const declaredRemote = [...canonicalKeys].find(([, key]) => key === declaredKey)?.[0];
+    if (declaredRemote !== undefined) return declaredRemote;
+  }
+  return null;
+}
+
 function pickPrimaryRemote(
   remotes: ReadonlyMap<string, string>,
+  baseDeclarations: ReadonlyMap<string, string>,
 ): { readonly remoteName: string; readonly remoteUrl: string } | null {
-  for (const preferredRemoteName of ["upstream", "origin"] as const) {
+  const preferredRemoteNames = [
+    pickDeclaredBaseRemote(remotes, baseDeclarations),
+    "upstream",
+    "origin",
+  ].filter((remoteName): remoteName is string => remoteName !== null);
+  for (const preferredRemoteName of preferredRemoteNames) {
     const remoteUrl = remotes.get(preferredRemoteName);
     if (remoteUrl) {
       return { remoteName: preferredRemoteName, remoteUrl };
@@ -131,7 +179,24 @@ const resolveRepositoryIdentityFromCacheKey = Effect.fn(
     return null;
   }
 
-  const remote = pickPrimaryRemote(parseRemoteFetchUrls(remoteResult.value.stdout));
+  // `--get-regexp` exits non-zero when nothing matches, which is the ordinary case of a checkout
+  // that has never named a base repository, so the declarations stay empty rather than failing.
+  const baseDeclarationResult = yield* processRunner
+    .run({
+      command: "git",
+      args: ["-C", cacheKey, "config", "--get-regexp", String.raw`^remote\..*\.gh-resolved$`],
+      timeoutBehavior: "timedOutResult",
+    })
+    .pipe(Effect.option);
+  const baseDeclarations =
+    baseDeclarationResult._tag === "Some" && baseDeclarationResult.value.code === 0
+      ? parseBaseRepositoryDeclarations(baseDeclarationResult.value.stdout)
+      : new Map<string, string>();
+
+  const remote = pickPrimaryRemote(
+    parseRemoteFetchUrls(remoteResult.value.stdout),
+    baseDeclarations,
+  );
   return remote ? buildRepositoryIdentity({ ...remote, rootPath: cacheKey }) : null;
 });
 
