@@ -153,6 +153,10 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   checkForUpdate: () => ipcRenderer.invoke(IpcChannels.UPDATE_CHECK_CHANNEL),
   downloadUpdate: () => ipcRenderer.invoke(IpcChannels.UPDATE_DOWNLOAD_CHANNEL),
   installUpdate: () => ipcRenderer.invoke(IpcChannels.UPDATE_INSTALL_CHANNEL),
+  resolveM3CodeCheckout: (candidatePaths) =>
+    ipcRenderer.invoke(IpcChannels.RESOLVE_M3_CODE_CHECKOUT_CHANNEL, { candidatePaths }),
+  openM3CodeLoginTerminal: (input) =>
+    ipcRenderer.invoke(IpcChannels.OPEN_M3_CODE_LOGIN_TERMINAL_CHANNEL, input),
   onUpdateState: (listener) => {
     const wrappedListener = (_event: Electron.IpcRendererEvent, state: unknown) => {
       if (typeof state !== "object" || state === null) return;

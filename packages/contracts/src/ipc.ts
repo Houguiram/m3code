@@ -264,6 +264,36 @@ export const DesktopUpdateCheckResultSchema = Schema.Struct({
   state: DesktopUpdateStateSchema,
 });
 
+export const M3CodeCheckoutCandidatePathsSchema = Schema.Struct({
+  candidatePaths: Schema.Array(Schema.String),
+});
+export type M3CodeCheckoutCandidatePaths = typeof M3CodeCheckoutCandidatePathsSchema.Type;
+
+export const M3CodeCheckoutResultSchema = Schema.Struct({
+  checkoutPath: Schema.NullOr(Schema.String),
+});
+export type M3CodeCheckoutResult = typeof M3CodeCheckoutResultSchema.Type;
+
+export const M3CodeLoginTerminalCommandSchema = Schema.Literals([
+  "install-local",
+  "rebuild-from-main",
+]);
+export type M3CodeLoginTerminalCommand = typeof M3CodeLoginTerminalCommandSchema.Type;
+
+export const M3CodeOpenLoginTerminalInputSchema = Schema.Struct({
+  command: M3CodeLoginTerminalCommandSchema,
+  cwd: Schema.NullOr(Schema.String),
+  candidatePaths: Schema.Array(Schema.String),
+});
+export type M3CodeOpenLoginTerminalInput = typeof M3CodeOpenLoginTerminalInputSchema.Type;
+
+export const M3CodeOpenLoginTerminalResultSchema = Schema.Struct({
+  started: Schema.Boolean,
+  checkoutPath: Schema.NullOr(Schema.String),
+  error: Schema.NullOr(Schema.String),
+});
+export type M3CodeOpenLoginTerminalResult = typeof M3CodeOpenLoginTerminalResultSchema.Type;
+
 // Stable id for the Windows-native primary backend. Desktop side wraps
 // this with a brand inside DesktopBackendManager; web side keeps it as
 // a plain string so the env-runtime can compare against it without
@@ -1145,6 +1175,18 @@ export interface DesktopBridge {
   downloadUpdate: () => Promise<DesktopUpdateActionResult>;
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
+  /**
+   * Resolve the primary M3 Code git checkout on this machine. Optional so
+   * older desktop shells can host a newer web client.
+   */
+  resolveM3CodeCheckout?: (candidatePaths: readonly string[]) => Promise<M3CodeCheckoutResult>;
+  /**
+   * Open a login Terminal.app window for a local desktop install. Detached
+   * from this process so `install:desktop:local` can quit and replace the app.
+   */
+  openM3CodeLoginTerminal?: (
+    input: M3CodeOpenLoginTerminalInput,
+  ) => Promise<M3CodeOpenLoginTerminalResult>;
   /**
    * Desktop-only preview surface. Present iff the renderer is hosted by the
    * Electron desktop build; web builds have `preview === undefined`.

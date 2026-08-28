@@ -23,6 +23,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import GitActionsControl from "../GitActionsControl";
+import { M3CodeActionsControl, type M3CodeTerminalCommandOptions } from "../M3CodeActionsControl";
 import { isTrailingDoubleClick } from "../Sidebar.logic";
 import { type DraftId } from "~/composerDraftStore";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -68,6 +69,8 @@ interface ChatHeaderProps {
   readonly onOpenPullRequest?: ((number: number) => void) | undefined;
   onNewThreadInProject: () => void;
   onRunProjectScript: (script: ProjectScript) => void;
+  onRunTerminalCommand: (command: string, options?: M3CodeTerminalCommandOptions) => void;
+  m3CodeCandidatePaths: ReadonlyArray<string>;
   onAddProjectScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
   onUpdateProjectScript: (
     scriptId: string,
@@ -137,6 +140,8 @@ export const ChatHeader = memo(function ChatHeader({
   onOpenPullRequest,
   onNewThreadInProject,
   onRunProjectScript,
+  onRunTerminalCommand,
+  m3CodeCandidatePaths,
   onAddProjectScript,
   onUpdateProjectScript,
   onDeleteProjectScript,
@@ -398,6 +403,13 @@ export const ChatHeader = memo(function ChatHeader({
             keybindings={keybindings}
             availableEditors={availableEditors}
             openInCwd={openInCwd}
+          />
+        )}
+        {activeProjectName && (
+          <M3CodeActionsControl
+            cwd={gitCwd ?? activeProjectCwd}
+            candidatePaths={m3CodeCandidatePaths}
+            onRunCommand={onRunTerminalCommand}
           />
         )}
         {activeProjectName && (

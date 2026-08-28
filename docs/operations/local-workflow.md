@@ -79,6 +79,12 @@ That command builds a host-architecture ZIP, quits the installed M3 Code app, re
 `/Applications/M3 Code (Alpha).app`, strips `com.apple.quarantine`, and opens the new bundle. It
 takes a few minutes. Any in-flight agent turns in the installed app are interrupted.
 
+From the installed app, the sidebar update control and Settings → Version do the same loop when they
+can see this checkout: `gt sync` on the primary worktree (`~/m3code`), then this installer, in a
+new Terminal window so the build survives the app quitting. Thread header **M3** actions run Graphite
+and `vp run dev:desktop` in the current worktree; **Install local build** still uses this installer
+from that directory.
+
 Stop `vp run dev:desktop` first. The installer refuses to run while that watcher, `M3 Code (Dev).app`,
 or `vp pack --watch` from this repo is alive. Daily use of the installed app together with
 `dev:desktop` is fine: they use `~/.m3/userdata` and `~/.m3/dev` respectively. Only the install

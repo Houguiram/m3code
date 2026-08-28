@@ -131,3 +131,10 @@ export function canCheckForUpdate(state: DesktopUpdateState | null): boolean {
     state.status !== "checking" && state.status !== "downloading" && state.status !== "disabled"
   );
 }
+
+export function shouldUseM3CodeLocalRebuild(input: {
+  readonly checkoutPath: string | null;
+  readonly action: DesktopUpdateButtonAction;
+}): boolean {
+  return input.checkoutPath !== null && input.action === "none";
+}
