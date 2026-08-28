@@ -40,6 +40,7 @@ policy in [CONTRIBUTING.md](../CONTRIBUTING.md); agent rules in [AGENTS.md](../A
 
 ### Runbooks
 
+- [M3 Code local workflow](./operations/local-workflow.md) (Graphite PRs, local Mac install, T3 Connect CLI)
 - [Release](./operations/release.md)
 - [Observability](./operations/observability.md)
 - [Relay observability](./operations/relay-observability.md)
