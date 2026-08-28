@@ -10,6 +10,7 @@ import {
   requiresDefaultBranchConfirmation,
   resolveQuickAction,
 } from "@t3tools/client-runtime/state/vcs";
+import { graphitePullRequestUrl } from "@t3tools/shared/sourceControl";
 import { useNavigation } from "@react-navigation/native";
 import { NativeHeaderToolbar } from "../../native/StackHeader";
 import { useCallback, useMemo } from "react";
@@ -157,6 +158,16 @@ function useThreadGitControlModel(props: ThreadGitMenuProps) {
     }
   }, [gitStatus]);
 
+  // Graphite reviews the same pull request GitHub hosts, so it is offered beside the host's own
+  // page whatever state the pull request is in.
+  const graphitePrUrl = gitStatus?.pr ? graphitePullRequestUrl(gitStatus.pr.url) : null;
+  const openPrInGraphite = useCallback(async () => {
+    if (graphitePrUrl === null) return;
+    if (!(await tryOpenExternalUrl(graphitePrUrl, "pull-request"))) {
+      Alert.alert("Unable to open Graphite", "The pull request could not be opened in Graphite.");
+    }
+  }, [graphitePrUrl]);
+
   const runActionWithPrompt = useCallback(
     async (input: GitActionRequestInput) => {
       const confirmableAction =
@@ -235,9 +246,11 @@ function useThreadGitControlModel(props: ThreadGitMenuProps) {
 
   return {
     currentBranchLabel,
+    graphitePrUrl,
     isRepo,
     openFiles,
     openGitInspector,
+    openPrInGraphite,
     openReview,
     quickAction,
     quickActionHint,
@@ -344,6 +357,17 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
               onPress: (): void => void model.runQuickAction(),
               type: "action",
             },
+            ...(model.graphitePrUrl === null
+              ? []
+              : [
+                  {
+                    description: "Review this pull request in Graphite",
+                    icon: { name: "arrow.up.right.square", type: "sfSymbol" as const },
+                    label: "Open in Graphite",
+                    onPress: (): void => void model.openPrInGraphite(),
+                    type: "action" as const,
+                  },
+                ]),
             {
               description: "Turn diffs and worktree changes",
               disabled: !model.isRepo,
@@ -369,9 +393,11 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
     }),
     [
       model.currentBranchLabel,
+      model.graphitePrUrl,
       model.isRepo,
       model.openFiles,
       model.openGitInspector,
+      model.openPrInGraphite,
       model.openReview,
       model.quickAction.disabled,
       model.quickAction.label,
@@ -522,6 +548,15 @@ export function ThreadGitMenu(props: ThreadGitMenuProps) {
       >
         <NativeHeaderToolbar.Label>{model.quickAction.label}</NativeHeaderToolbar.Label>
       </NativeHeaderToolbar.MenuAction>
+      {model.graphitePrUrl === null ? null : (
+        <NativeHeaderToolbar.MenuAction
+          icon="arrow.up.right.square"
+          onPress={() => void model.openPrInGraphite()}
+          subtitle="Review this pull request in Graphite"
+        >
+          <NativeHeaderToolbar.Label>Open in Graphite</NativeHeaderToolbar.Label>
+        </NativeHeaderToolbar.MenuAction>
+      )}
       <NativeHeaderToolbar.MenuAction
         icon="text.bubble"
         disabled={!model.isRepo}

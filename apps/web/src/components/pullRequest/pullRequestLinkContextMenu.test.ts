@@ -4,9 +4,22 @@ import { openOnHostLabel, pullRequestLinkContextMenuItems } from "./pullRequestL
 
 describe("pull request link context menu", () => {
   it("offers the copy first and the host's own page after it", () => {
-    expect(pullRequestLinkContextMenuItems("Open on GitHub")).toEqual([
+    expect(pullRequestLinkContextMenuItems("Open on GitHub", null)).toEqual([
       { id: "copy-link", label: "Copy link", icon: "copy" },
       { id: "open-external", label: "Open on GitHub" },
+    ]);
+  });
+
+  it("offers Graphite last, and only for a pull request it can show", () => {
+    expect(
+      pullRequestLinkContextMenuItems(
+        "Open on GitHub",
+        "https://app.graphite.dev/github/pr/t3-oss/t3-code/42",
+      ),
+    ).toEqual([
+      { id: "copy-link", label: "Copy link", icon: "copy" },
+      { id: "open-external", label: "Open on GitHub" },
+      { id: "open-graphite", label: "Open in Graphite" },
     ]);
   });
 

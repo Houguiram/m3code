@@ -92,6 +92,7 @@ import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { readLocalApi } from "~/localApi";
 import { getSourceControlPresentation } from "~/sourceControlPresentation";
 import { openPullRequestLink } from "~/lib/openPullRequestLink";
+import { graphitePullRequestUrl } from "@t3tools/shared/sourceControl";
 
 interface GitActionsControlProps {
   gitCwd: string | null;
@@ -1260,6 +1261,35 @@ export default function GitActionsControl({
     });
   }, [gitStatusForActions, onOpenPullRequest, threadToastData]);
 
+  // Graphite reviews the same pull request GitHub hosts, so this stays a plain external link
+  // rather than another way into the in-app panel.
+  const graphitePrUrl = gitStatusForActions?.pr
+    ? graphitePullRequestUrl(gitStatusForActions.pr.url)
+    : null;
+  const openPrInGraphite = useCallback(() => {
+    if (graphitePrUrl === null) return;
+    const api = readLocalApi();
+    if (!api) {
+      toastManager.add({
+        type: "error",
+        title: "Link opening is unavailable.",
+        data: threadToastData,
+      });
+      return;
+    }
+    void openPullRequestLink(api.shell, graphitePrUrl).catch((err: unknown) => {
+      console.error(err);
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Unable to open Graphite",
+          description: err instanceof Error ? err.message : "An error occurred.",
+          ...(threadToastData !== undefined ? { data: threadToastData } : {}),
+        }),
+      );
+    });
+  }, [graphitePrUrl, threadToastData]);
+
   runGitActionWithToast = useEffectEvent(
     async ({
       action,
@@ -1799,6 +1829,12 @@ export default function GitActionsControl({
                   </MenuItem>
                 );
               })}
+              {graphitePrUrl !== null ? (
+                <MenuItem onClick={openPrInGraphite}>
+                  <ExternalLinkIcon />
+                  Open in Graphite
+                </MenuItem>
+              ) : null}
               {canPublishRepository ? (
                 <MenuItem
                   disabled={isGitActionRunning}

@@ -1,11 +1,12 @@
 import type { ContextMenuItem } from "@t3tools/contracts";
+import { graphitePullRequestUrl } from "@t3tools/shared/sourceControl";
 
 import { writeTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { readLocalApi } from "~/localApi";
 
 import { toastManager } from "../ui/toast";
 
-export type PullRequestLinkContextMenuAction = "copy-link" | "open-external";
+export type PullRequestLinkContextMenuAction = "copy-link" | "open-external" | "open-graphite";
 
 /** Named for the host rather than "externally": the point is where you will land. */
 export const OPEN_ON_HOST_LABELS: Partial<Record<string, string>> = {
@@ -18,13 +19,18 @@ export const OPEN_ON_HOST_LABELS: Partial<Record<string, string>> = {
 export const openOnHostLabel = (provider: string): string =>
   OPEN_ON_HOST_LABELS[provider] ?? "Open on host";
 
-/** Copy first: it is the reason to right-click a number rather than click it. */
+/**
+ * Copy first: it is the reason to right-click a number rather than click it. Graphite follows the
+ * host's own page, and only appears for a pull request it can show.
+ */
 export function pullRequestLinkContextMenuItems(
   openLabel: string,
+  graphiteUrl: string | null,
 ): readonly ContextMenuItem<PullRequestLinkContextMenuAction>[] {
   return [
     { id: "copy-link", label: "Copy link", icon: "copy" },
     { id: "open-external", label: openLabel },
+    ...(graphiteUrl === null ? [] : [{ id: "open-graphite" as const, label: "Open in Graphite" }]),
   ];
 }
 
@@ -48,9 +54,13 @@ export async function showPullRequestLinkContextMenu({
 }): Promise<void> {
   const api = readLocalApi();
   if (!api) return;
+  const graphiteUrl = graphitePullRequestUrl(url);
   let action: PullRequestLinkContextMenuAction | null = null;
   try {
-    action = await api.contextMenu.show(pullRequestLinkContextMenuItems(openLabel), position);
+    action = await api.contextMenu.show(
+      pullRequestLinkContextMenuItems(openLabel, graphiteUrl),
+      position,
+    );
   } catch {
     // A menu that could not be shown has already cost the reader their right-click; there is
     // nothing to say about it that a second popup would not make worse.
@@ -59,6 +69,9 @@ export async function showPullRequestLinkContextMenu({
   try {
     if (action === "copy-link") await writeTextToClipboard(url, "link");
     else if (action === "open-external") await api.shell.openExternal(url);
+    else if (action === "open-graphite" && graphiteUrl !== null) {
+      await api.shell.openExternal(graphiteUrl);
+    }
   } catch {
     toastManager.add({
       type: "error",
