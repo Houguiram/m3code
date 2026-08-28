@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync Upstream"
+  short_description: "Create the M3 upstream merge PR"
+  default_prompt: "Use $sync-upstream to merge the latest T3 Code upstream main into M3 Code and create the Graphite PR."
