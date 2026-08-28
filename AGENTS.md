@@ -111,7 +111,10 @@ An empty database is a bad test. Seed your worktree's `.t3` with a copy of real 
 
 ## Pull requests
 
+This checkout is the M3 Code fork. For Graphite submit/sync, local Mac install, and T3 Connect CLI linking, follow [docs/operations/local-workflow.md](docs/operations/local-workflow.md) instead of `gh pr create` or a Finder DMG install.
+
 - Never make a PR unless the developer explicitly asks you to do so.
+- Open and update PRs with Graphite (`gt create`, `gt submit`, `gt sync`). Do not use `gh pr create`.
 - Conventional commit titles, plain language: `fix(web): new threads no longer spike CPU`.
 - Body: the problem in a sentence or two, then how you fixed it. End with the model and harness that did the work.
 - UI changes need before/after images. Motion or timing needs a short video.
@@ -153,3 +156,4 @@ Full glossary with file links: `docs/internals/glossary.md`
 
 - Don't verify with browsers or computer use unless the user explicitly agrees or requests it.
 - Security is important, but should not be over-indexed on, especially for dev mode/maintainer-only features.
+- When asked to update the installed Mac app, run `vp run install:desktop:local`. Details in [docs/operations/local-workflow.md](docs/operations/local-workflow.md).

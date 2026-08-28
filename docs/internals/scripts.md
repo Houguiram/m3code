@@ -72,7 +72,8 @@ authenticated.
   `dist:desktop:dmg:x64`, or pass `--arch <arm64|x64|universal>`, to force one.
 - `vp run install:desktop:local`: Builds a macOS ZIP for the host architecture, quits an installed
   M3 Code app once the build is ready, replaces it in `/Applications`, and relaunches it. Stop
-  `dev:desktop` first; the command refuses to install while that watcher is running.
+  `dev:desktop` first; the command refuses to install while that watcher is running. Full loop
+  (Graphite, when to install, T3 Connect CLI): [local workflow](../operations/local-workflow.md).
 - `vp run dist:desktop:linux`: Builds a Linux AppImage into `./release`.
 - `vp run dist:desktop:win`: Builds a Windows NSIS installer into `./release`. `:arm64` and `:x64`
   variants exist.

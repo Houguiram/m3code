@@ -2,8 +2,9 @@
 
 M3 Code is Houguiram's personal desktop fork of [T3 Code](https://github.com/pingdotgg/t3code).
 It uses its own application identity, `m3code://` protocol, update repository, and `~/.m3`
-runtime state so it can coexist safely with the official app. The upstream project documentation is
-preserved below for development and synchronization reference.
+runtime state so it can coexist safely with the official app. Graphite PRs, local Mac installs, and
+T3 Connect CLI linking: [docs/operations/local-workflow.md](docs/operations/local-workflow.md). The
+upstream project documentation is preserved below for development and synchronization reference.
 
 ## Upstream T3 Code project
 
