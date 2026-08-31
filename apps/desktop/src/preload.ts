@@ -151,6 +151,10 @@ contextBridge.exposeInMainWorld("desktopBridge", {
       ipcRenderer.removeListener(IpcChannels.WINDOW_FULLSCREEN_STATE_CHANNEL, wrappedListener);
     };
   },
+  getKeepAwakeState: () => ipcRenderer.invoke(IpcChannels.GET_KEEP_AWAKE_STATE_CHANNEL),
+  setKeepAwake: (enabled) => ipcRenderer.invoke(IpcChannels.SET_KEEP_AWAKE_CHANNEL, enabled),
+  setKeepAwakeDisplay: (enabled) =>
+    ipcRenderer.invoke(IpcChannels.SET_KEEP_AWAKE_DISPLAY_CHANNEL, enabled),
   getUpdateState: () => ipcRenderer.invoke(IpcChannels.UPDATE_GET_STATE_CHANNEL),
   setUpdateChannel: (channel) =>
     ipcRenderer.invoke(IpcChannels.UPDATE_SET_CHANNEL_CHANNEL, channel),

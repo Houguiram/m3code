@@ -9,11 +9,16 @@ import type * as Electron from "electron";
 import * as DesktopBackendManager from "../../backend/DesktopBackendManager.ts";
 import * as DesktopBackendPool from "../../backend/DesktopBackendPool.ts";
 import * as ElectronDialog from "../../electron/ElectronDialog.ts";
+import * as ElectronPowerMonitor from "../../electron/ElectronPowerMonitor.ts";
 import * as ElectronWindow from "../../electron/ElectronWindow.ts";
+import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
 import {
+  getKeepAwakeState,
   getLocalEnvironmentBootstraps,
   getWindowFullscreenState,
   pickProjectFavicon,
+  setKeepAwake,
+  setKeepAwakeDisplay,
 } from "./window.ts";
 
 const readyWslConfig: DesktopBackendManager.DesktopBackendStartConfig = {
@@ -150,6 +155,49 @@ describe("getWindowFullscreenState", () => {
         }),
       ),
     );
+  });
+});
+
+describe("keep awake", () => {
+  it.effect("reads and updates the desktop power blocker and display preference", () => {
+    let enabled = false;
+    const updates: Array<{ enabled: boolean; keepDisplayOn: boolean }> = [];
+    const layer = Layer.mergeAll(
+      Layer.mock(ElectronPowerMonitor.ElectronPowerMonitor)({
+        getKeepAwakeState: Effect.sync(() => enabled),
+        setKeepAwake: (next, keepDisplayOn) =>
+          Effect.sync(() => {
+            updates.push({ enabled: next, keepDisplayOn });
+            enabled = next;
+            return enabled;
+          }),
+      }),
+      DesktopAppSettings.layerTest(),
+    );
+
+    return Effect.gen(function* () {
+      assert.deepEqual(yield* getKeepAwakeState.handler(undefined), {
+        enabled: false,
+        keepDisplayOn: false,
+      });
+      assert.deepEqual(yield* setKeepAwake.handler(true), {
+        enabled: true,
+        keepDisplayOn: false,
+      });
+      assert.deepEqual(yield* setKeepAwakeDisplay.handler(true), {
+        enabled: true,
+        keepDisplayOn: true,
+      });
+      assert.deepEqual(yield* setKeepAwake.handler(false), {
+        enabled: false,
+        keepDisplayOn: true,
+      });
+      assert.deepEqual(updates, [
+        { enabled: true, keepDisplayOn: false },
+        { enabled: true, keepDisplayOn: true },
+        { enabled: false, keepDisplayOn: true },
+      ]);
+    }).pipe(Effect.provide(layer));
   });
 });
 

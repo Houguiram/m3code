@@ -264,6 +264,12 @@ export const DesktopUpdateCheckResultSchema = Schema.Struct({
   state: DesktopUpdateStateSchema,
 });
 
+export const DesktopKeepAwakeStateSchema = Schema.Struct({
+  enabled: Schema.Boolean,
+  keepDisplayOn: Schema.Boolean,
+});
+export type DesktopKeepAwakeState = typeof DesktopKeepAwakeStateSchema.Type;
+
 export const M3CodeCheckoutCandidatePathsSchema = Schema.Struct({
   candidatePaths: Schema.Array(Schema.String),
 });
@@ -1190,6 +1196,9 @@ export interface DesktopBridge {
   onQuitShortcut?: (listener: (state: "down" | "up") => void) => () => void;
   getWindowFullscreenState: () => boolean;
   onWindowFullscreenStateChange: (listener: (fullscreen: boolean) => void) => () => void;
+  getKeepAwakeState?: () => Promise<DesktopKeepAwakeState>;
+  setKeepAwake?: (enabled: boolean) => Promise<DesktopKeepAwakeState>;
+  setKeepAwakeDisplay?: (enabled: boolean) => Promise<DesktopKeepAwakeState>;
   getUpdateState: () => Promise<DesktopUpdateState>;
   setUpdateChannel: (channel: DesktopUpdateChannel) => Promise<DesktopUpdateState>;
   checkForUpdate: () => Promise<DesktopUpdateCheckResult>;

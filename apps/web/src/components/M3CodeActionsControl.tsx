@@ -6,7 +6,7 @@ import {
   RefreshCwIcon,
   UploadIcon,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { isElectron } from "~/env";
 import { ensureLocalApi } from "~/localApi";
@@ -30,6 +30,7 @@ import {
 } from "./ui/dialog";
 import {
   Menu,
+  MenuCheckboxItem,
   MenuGroup,
   MenuGroupLabel,
   MenuItem,
@@ -59,6 +60,46 @@ export function M3CodeActionsControl({
 }: M3CodeActionsControlProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createMessage, setCreateMessage] = useState("");
+  const [keepAwake, setKeepAwakeState] = useState(false);
+  const [keepAwakePending, setKeepAwakePending] = useState(false);
+  const keepAwakeSupported =
+    isElectron &&
+    window.desktopBridge?.getClientPlatform?.() === "darwin" &&
+    typeof window.desktopBridge.getKeepAwakeState === "function" &&
+    typeof window.desktopBridge.setKeepAwake === "function";
+
+  useEffect(() => {
+    if (!keepAwakeSupported) return;
+    let active = true;
+    void window.desktopBridge
+      ?.getKeepAwakeState?.()
+      .then((state) => {
+        if (active) setKeepAwakeState(state.enabled);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [keepAwakeSupported]);
+
+  const setKeepAwake = useCallback(async (enabled: boolean) => {
+    const update = window.desktopBridge?.setKeepAwake;
+    if (typeof update !== "function") return;
+    setKeepAwakePending(true);
+    try {
+      setKeepAwakeState((await update(enabled)).enabled);
+    } catch (error) {
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Could not change keep-awake mode",
+          description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        }),
+      );
+    } finally {
+      setKeepAwakePending(false);
+    }
+  }, []);
 
   const runDetachedInstall = useCallback(async () => {
     if (cwd === null) return;
@@ -165,6 +206,16 @@ export function M3CodeActionsControl({
           <MenuSeparator />
           <MenuGroup>
             <MenuGroupLabel>Desktop</MenuGroupLabel>
+            {keepAwakeSupported ? (
+              <MenuCheckboxItem
+                checked={keepAwake}
+                disabled={keepAwakePending}
+                variant="switch"
+                onCheckedChange={(checked) => void setKeepAwake(checked)}
+              >
+                Keep Mac awake
+              </MenuCheckboxItem>
+            ) : null}
             <MenuItem
               className={dropdownItemClassName}
               onClick={() => onRunCommand(M3_CODE_DESKTOP_DEV_COMMAND, { preferNewTerminal: true })}

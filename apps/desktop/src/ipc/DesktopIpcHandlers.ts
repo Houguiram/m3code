@@ -33,6 +33,7 @@ import {
 } from "./methods/updates.ts";
 import {
   getAppBranding,
+  getKeepAwakeState,
   getLocalEnvironmentBootstraps,
   getLocalEnvironmentBearerToken,
   getSystemLocale,
@@ -42,6 +43,8 @@ import {
   pickFolder,
   pickProjectFavicon,
   pickThemeFiles,
+  setKeepAwake,
+  setKeepAwakeDisplay,
   setTheme,
   showContextMenu,
 } from "./methods/window.ts";
@@ -57,6 +60,9 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handleSync(getWindowFullscreenState);
   yield* ipc.handleSync(getLocalEnvironmentBootstraps);
   yield* ipc.handle(getLocalEnvironmentBearerToken);
+  yield* ipc.handle(getKeepAwakeState);
+  yield* ipc.handle(setKeepAwake);
+  yield* ipc.handle(setKeepAwakeDisplay);
 
   yield* ipc.handle(getClientSettings);
   yield* ipc.handle(setClientSettings);

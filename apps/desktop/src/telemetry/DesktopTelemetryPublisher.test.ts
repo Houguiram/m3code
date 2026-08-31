@@ -58,6 +58,8 @@ describe("DesktopTelemetryPublisher", () => {
       const powerLayer = Layer.succeed(
         ElectronPowerMonitor.ElectronPowerMonitor,
         ElectronPowerMonitor.ElectronPowerMonitor.of({
+          getKeepAwakeState: Effect.succeed(false),
+          setKeepAwake: Effect.succeed,
           isOnBatteryPower: Effect.succeed(false),
           getSystemIdleTime: Deferred.succeed(pollStarted, undefined).pipe(
             Effect.andThen(Deferred.await(blockPoll)),
@@ -116,6 +118,8 @@ describe("DesktopTelemetryPublisher", () => {
       const powerLayer = Layer.succeed(
         ElectronPowerMonitor.ElectronPowerMonitor,
         ElectronPowerMonitor.ElectronPowerMonitor.of({
+          getKeepAwakeState: Effect.succeed(false),
+          setKeepAwake: Effect.succeed,
           isOnBatteryPower: Ref.get(onBattery),
           getSystemIdleTime: Effect.succeed(5),
           getSystemIdleState: () =>

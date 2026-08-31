@@ -2,6 +2,7 @@ import {
   ContextMenuItemSchema,
   DesktopAppBrandingSchema,
   DesktopEnvironmentBootstrapSchema,
+  DesktopKeepAwakeStateSchema,
   DesktopThemeSchema,
   EDITORS,
   EditorId,
@@ -30,6 +31,7 @@ import * as DesktopWslEnvironment from "../../wsl/DesktopWslEnvironment.ts";
 import * as ElectronApp from "../../electron/ElectronApp.ts";
 import * as ElectronDialog from "../../electron/ElectronDialog.ts";
 import * as ElectronMenu from "../../electron/ElectronMenu.ts";
+import * as ElectronPowerMonitor from "../../electron/ElectronPowerMonitor.ts";
 import * as ElectronShell from "../../electron/ElectronShell.ts";
 import * as ElectronTheme from "../../electron/ElectronTheme.ts";
 import * as ElectronWindow from "../../electron/ElectronWindow.ts";
@@ -82,6 +84,54 @@ export const getWindowFullscreenState = DesktopIpc.makeSyncIpcMethod({
     const electronWindow = yield* ElectronWindow.ElectronWindow;
     const window = yield* electronWindow.currentMainOrFirst;
     return Option.isSome(window) && window.value.isFullScreen();
+  }),
+});
+
+export const getKeepAwakeState = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.GET_KEEP_AWAKE_STATE_CHANNEL,
+  payload: Schema.Void,
+  result: DesktopKeepAwakeStateSchema,
+  handler: Effect.fn("desktop.ipc.window.getKeepAwakeState")(function* () {
+    const powerMonitor = yield* ElectronPowerMonitor.ElectronPowerMonitor;
+    const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
+    const settings = yield* appSettings.get;
+    return {
+      enabled: yield* powerMonitor.getKeepAwakeState,
+      keepDisplayOn: settings.keepAwakeDisplayOn,
+    };
+  }),
+});
+
+export const setKeepAwake = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.SET_KEEP_AWAKE_CHANNEL,
+  payload: Schema.Boolean,
+  result: DesktopKeepAwakeStateSchema,
+  handler: Effect.fn("desktop.ipc.window.setKeepAwake")(function* (enabled) {
+    const powerMonitor = yield* ElectronPowerMonitor.ElectronPowerMonitor;
+    const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
+    const settings = yield* appSettings.get;
+    return {
+      enabled: yield* powerMonitor.setKeepAwake(enabled, settings.keepAwakeDisplayOn),
+      keepDisplayOn: settings.keepAwakeDisplayOn,
+    };
+  }),
+});
+
+export const setKeepAwakeDisplay = DesktopIpc.makeIpcMethod({
+  channel: IpcChannels.SET_KEEP_AWAKE_DISPLAY_CHANNEL,
+  payload: Schema.Boolean,
+  result: DesktopKeepAwakeStateSchema,
+  handler: Effect.fn("desktop.ipc.window.setKeepAwakeDisplay")(function* (keepDisplayOn) {
+    const powerMonitor = yield* ElectronPowerMonitor.ElectronPowerMonitor;
+    const appSettings = yield* DesktopAppSettings.DesktopAppSettings;
+    const { settings } = yield* appSettings.setKeepAwakeDisplayOn(keepDisplayOn);
+    const wasEnabled = yield* powerMonitor.getKeepAwakeState;
+    return {
+      enabled: wasEnabled
+        ? yield* powerMonitor.setKeepAwake(true, settings.keepAwakeDisplayOn)
+        : false,
+      keepDisplayOn: settings.keepAwakeDisplayOn,
+    };
   }),
 });
 
