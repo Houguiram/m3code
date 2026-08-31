@@ -211,15 +211,16 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
   const appearance = resolveAppearance(value, canvas);
 
   const accentColor = pick(
-    "focusBorder",
     "button.background",
     "textLink.foreground",
     "activityBarBadge.background",
     "progressBar.background",
     "badge.background",
+    "focusBorder",
   );
   const canvasHex = toHex(canvas);
   const accentHex = accentColor ? flattenOver(accentColor, canvas) : null;
+  const focusHex = solidOver(canvas, "focusBorder") ?? accentHex;
 
   // The derived palette is the floor: every role starts contrast-solved, then
   // the theme's own workbench colors replace what it actually specified. The
@@ -236,6 +237,11 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
   const terminalHex =
     solidOver(canvas, "terminal.background", "panel.background") ?? derived.terminalBackground;
   const terminal = hexToRgb(terminalHex);
+  const accentSurfaceHex =
+    solidOver(canvas, "list.activeSelectionBackground", "list.hoverBackground") ??
+    derived.accentSurface;
+  const messageSurfaceHex =
+    solidOver(canvas, "list.activeSelectionBackground") ?? derived.messageSurface;
 
   /** Foregrounds only win when they stay readable on the surface they land on;
    *  a theme tuned for its own chrome can be unreadable on ours. */
@@ -256,6 +262,16 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
     return relativeLuminance(surfaceRgb) < 0.179 ? "#ffffff" : "#000000";
   };
 
+  /**
+   * Interactive chrome is part of a theme's visual identity. Preserve an
+   * authored pair even when it misses the body-text AA threshold, but reject
+   * combinations so close that the control would effectively disappear.
+   */
+  const authoredOn = (surface: string, ...keys: ReadonlyArray<string>): string | null => {
+    const surfaceRgb = hexToRgb(surface);
+    const specified = solidOver(surfaceRgb, ...keys);
+    return specified && contrastRatio(hexToRgb(specified), surfaceRgb) >= 1.5 ? specified : null;
+  };
   const overrides: Partial<Record<ThemeColorRole, string>> = {
     canvas: canvasHex,
     text: readableOn(canvasHex, derived.text, "editor.foreground", "foreground"),
@@ -277,9 +293,14 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
     placeholder: readableOn(canvasHex, derived.placeholder, "input.placeholderForeground"),
     error: readableOn(canvasHex, derived.error, "editorError.foreground", "errorForeground"),
     warning: readableOn(canvasHex, derived.warning, "editorWarning.foreground"),
-    accentSurface:
-      solidOver(canvas, "list.activeSelectionBackground", "list.hoverBackground") ??
-      derived.accentSurface,
+    accentSurface: accentSurfaceHex,
+    accentSurfaceForeground:
+      authoredOn(accentSurfaceHex, "list.activeSelectionForeground") ??
+      readableOn(accentSurfaceHex, derived.accentSurfaceForeground),
+    messageSurface: messageSurfaceHex,
+    messageForeground:
+      authoredOn(messageSurfaceHex, "list.activeSelectionForeground") ??
+      readableOn(messageSurfaceHex, derived.messageForeground),
     codeBackground: solidOver(canvas, "textCodeBlock.background") ?? derived.codeBackground,
     sidebar: sidebarHex,
     sidebarForeground: readableOn(sidebarHex, derived.sidebarForeground, "sideBar.foreground"),
@@ -303,20 +324,24 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
   };
   if (accentHex) {
     overrides.accent = accentHex;
-    overrides.focus = accentHex;
-    // The button pair is the closest thing VS Code has to our action color.
+    overrides.focus = focusHex ?? accentHex;
+    // Import the complete button family. Its authored foreground is chrome,
+    // not body text, so fidelity wins unless the pair is effectively invisible.
     const actionHex = solidOver(canvas, "button.background") ?? accentHex;
+    const actionHoverHex =
+      solidOver(canvas, "button.hoverBackground") ?? derived.messageActionHover;
     overrides.messageAction = actionHex;
-    overrides.messageActionForeground = readableOn(
-      actionHex,
-      derived.messageActionForeground,
-      "button.foreground",
-    );
-    overrides.accentForeground = readableOn(
-      accentHex,
-      derived.accentForeground,
-      "button.foreground",
-    );
+    const authoredActionForeground = authoredOn(actionHex, "button.foreground");
+    const actionForeground =
+      authoredActionForeground ?? readableOn(actionHex, derived.messageActionForeground);
+    overrides.messageActionForeground = actionForeground;
+    overrides.messageActionHover =
+      authoredActionForeground ||
+      contrastRatio(hexToRgb(actionForeground), hexToRgb(actionHoverHex)) >= 4.5
+        ? actionHoverHex
+        : actionHex;
+    overrides.accentForeground =
+      authoredOn(accentHex, "button.foreground") ?? readableOn(accentHex, derived.accentForeground);
   }
 
   // Reuse the theme-file parser so ids, names, and color values go through the
