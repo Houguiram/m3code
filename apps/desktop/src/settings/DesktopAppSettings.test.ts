@@ -14,6 +14,7 @@ const DesktopSettingsPatch = Schema.Struct({
   linuxPasswordStore: Schema.optionalKey(
     Schema.Literals(["auto", "gnome-libsecret", "kwallet", "kwallet5", "kwallet6"]),
   ),
+  keepAwakeDisplayOn: Schema.optionalKey(Schema.Boolean),
   mainWindowBounds: Schema.optionalKey(
     Schema.NullOr(
       Schema.Struct({
@@ -106,6 +107,7 @@ describe("DesktopSettings", () => {
       DesktopAppSettings.resolveDefaultDesktopSettings("0.0.17-nightly.20260415.1"),
       {
         linuxPasswordStore: "auto",
+        keepAwakeDisplayOn: false,
         mainWindowBounds: null,
         mainWindowMaximized: false,
         serverExposureMode: "local-only",
@@ -126,6 +128,7 @@ describe("DesktopSettings", () => {
         const settings = yield* DesktopAppSettings.DesktopAppSettings;
         yield* writeSettingsPatch({
           linuxPasswordStore: "gnome-libsecret",
+          keepAwakeDisplayOn: true,
           serverExposureMode: "network-accessible",
           tailscaleServeEnabled: true,
           tailscaleServePort: 8443,
@@ -135,6 +138,7 @@ describe("DesktopSettings", () => {
 
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "gnome-libsecret",
+          keepAwakeDisplayOn: true,
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
@@ -242,6 +246,7 @@ describe("DesktopSettings", () => {
 
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
+          keepAwakeDisplayOn: false,
           mainWindowBounds: { x: 120, y: 80, width: 1280, height: 900 },
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
@@ -298,6 +303,7 @@ describe("DesktopSettings", () => {
 
           assert.deepEqual(yield* settings.load, {
             linuxPasswordStore: "auto",
+            keepAwakeDisplayOn: false,
             mainWindowBounds: null,
             mainWindowMaximized: false,
             serverExposureMode: "network-accessible",
@@ -322,6 +328,7 @@ describe("DesktopSettings", () => {
 
         yield* settings.setMainWindowBounds({ x: -1200, y: 40, width: 1440, height: 960 }, true);
         yield* settings.setServerExposureMode("network-accessible");
+        yield* settings.setKeepAwakeDisplayOn(true);
 
         const persisted = yield* decodeDesktopSettingsPatch(
           yield* fileSystem.readFileString(environment.desktopSettingsPath),
@@ -330,6 +337,7 @@ describe("DesktopSettings", () => {
           mainWindowBounds: { x: -1200, y: 40, width: 1440, height: 960 },
           mainWindowMaximized: true,
           serverExposureMode: "network-accessible",
+          keepAwakeDisplayOn: true,
         } satisfies typeof DesktopSettingsPatch.Type);
       }),
     ),
@@ -346,6 +354,7 @@ describe("DesktopSettings", () => {
 
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
+          keepAwakeDisplayOn: false,
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "local-only",
@@ -374,6 +383,7 @@ describe("DesktopSettings", () => {
 
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
+          keepAwakeDisplayOn: false,
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "local-only",
@@ -401,6 +411,7 @@ describe("DesktopSettings", () => {
 
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
+          keepAwakeDisplayOn: false,
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "local-only",

@@ -20,6 +20,7 @@ export interface SettingsSearchItem {
   // an anchor that isn't there.
   readonly desktopOnly?: boolean;
   readonly macosOnly?: boolean;
+  readonly requiresKeepAwakeDisplay?: boolean;
 }
 
 /**
@@ -188,6 +189,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "keep-display-on",
+    title: "Keep display on while awake",
+    to: "/settings/general",
+    macosOnly: true,
+    requiresKeepAwakeDisplay: true,
+  },
+  {
     id: "text-generation-model",
     title: "Text generation model",
     to: "/settings/general",
@@ -315,6 +323,9 @@ export function searchSettings(
       (isElectron || item.desktopOnly !== true) &&
       (item.macosOnly !== true ||
         (isElectron && typeof navigator !== "undefined" && isMacPlatform(navigator.platform))) &&
+      (item.requiresKeepAwakeDisplay !== true ||
+        (typeof window !== "undefined" &&
+          typeof window.desktopBridge?.setKeepAwakeDisplay === "function")) &&
       normalizeSearchText(item.title).includes(normalizedQuery),
   );
 }

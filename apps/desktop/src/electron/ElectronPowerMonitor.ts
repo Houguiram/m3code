@@ -11,6 +11,8 @@ export type ElectronIdleState = ReturnType<Electron.PowerMonitor["getSystemIdleS
 export class ElectronPowerMonitor extends Context.Service<
   ElectronPowerMonitor,
   {
+    readonly getKeepAwakeState: Effect.Effect<boolean>;
+    readonly setKeepAwake: (enabled: boolean, keepDisplayOn: boolean) => Effect.Effect<boolean>;
     readonly isOnBatteryPower: Effect.Effect<boolean>;
     readonly getSystemIdleTime: Effect.Effect<number>;
     readonly getSystemIdleState: (idleThresholdSeconds: number) => Effect.Effect<ElectronIdleState>;
@@ -75,15 +77,39 @@ const onSpeedLimitChange: ElectronPowerMonitor["Service"]["onSpeedLimitChange"] 
   ).pipe(Effect.asVoid);
 };
 
-export const make = ElectronPowerMonitor.of({
-  isOnBatteryPower: Effect.sync(() => Electron.powerMonitor.isOnBatteryPower()),
-  getSystemIdleTime: Effect.sync(() => Electron.powerMonitor.getSystemIdleTime()),
-  getSystemIdleState: (idleThresholdSeconds) =>
-    Effect.sync(() => Electron.powerMonitor.getSystemIdleState(idleThresholdSeconds)),
-  getCurrentThermalState: Effect.sync(() => Electron.powerMonitor.getCurrentThermalState()),
-  onSimpleEvent,
-  onThermalStateChange,
-  onSpeedLimitChange,
-});
+export const make = (() => {
+  let keepAwakeBlockerId: number | null = null;
+  let keepAwakeDisplayOn = false;
+
+  const isKeepingAwake = () =>
+    keepAwakeBlockerId !== null && Electron.powerSaveBlocker.isStarted(keepAwakeBlockerId);
+
+  return ElectronPowerMonitor.of({
+    getKeepAwakeState: Effect.sync(isKeepingAwake),
+    setKeepAwake: (enabled, keepDisplayOn) =>
+      Effect.sync(() => {
+        const modeChanged = isKeepingAwake() && keepAwakeDisplayOn !== keepDisplayOn;
+        if ((!enabled || modeChanged) && keepAwakeBlockerId !== null) {
+          Electron.powerSaveBlocker.stop(keepAwakeBlockerId);
+          keepAwakeBlockerId = null;
+        }
+        if (enabled && !isKeepingAwake()) {
+          keepAwakeBlockerId = Electron.powerSaveBlocker.start(
+            keepDisplayOn ? "prevent-display-sleep" : "prevent-app-suspension",
+          );
+          keepAwakeDisplayOn = keepDisplayOn;
+        }
+        return isKeepingAwake();
+      }),
+    isOnBatteryPower: Effect.sync(() => Electron.powerMonitor.isOnBatteryPower()),
+    getSystemIdleTime: Effect.sync(() => Electron.powerMonitor.getSystemIdleTime()),
+    getSystemIdleState: (idleThresholdSeconds) =>
+      Effect.sync(() => Electron.powerMonitor.getSystemIdleState(idleThresholdSeconds)),
+    getCurrentThermalState: Effect.sync(() => Electron.powerMonitor.getCurrentThermalState()),
+    onSimpleEvent,
+    onThermalStateChange,
+    onSpeedLimitChange,
+  });
+})();
 
 export const layer = Layer.succeed(ElectronPowerMonitor, make);

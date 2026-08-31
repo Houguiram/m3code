@@ -26,6 +26,7 @@ import { isValidDistroName } from "../wsl/wslPathParsing.ts";
 
 export interface DesktopSettings {
   readonly linuxPasswordStore: LinuxPasswordStorePreference;
+  readonly keepAwakeDisplayOn: boolean;
   readonly mainWindowBounds: DesktopWindowBounds | null;
   readonly mainWindowMaximized: boolean;
   readonly serverExposureMode: DesktopServerExposureMode;
@@ -74,6 +75,7 @@ export const DEFAULT_MAIN_WINDOW_SIZE = {
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   linuxPasswordStore: DEFAULT_LINUX_PASSWORD_STORE,
+  keepAwakeDisplayOn: false,
   mainWindowBounds: null,
   mainWindowMaximized: false,
   serverExposureMode: "local-only",
@@ -95,6 +97,7 @@ const DesktopWindowBoundsDocument = Schema.Struct({
 
 const DesktopSettingsDocument = Schema.Struct({
   linuxPasswordStore: Schema.optionalKey(Schema.Unknown),
+  keepAwakeDisplayOn: Schema.optionalKey(Schema.Boolean),
   mainWindowBounds: Schema.optionalKey(Schema.NullOr(DesktopWindowBoundsDocument)),
   mainWindowMaximized: Schema.optionalKey(Schema.Boolean),
   serverExposureMode: Schema.optionalKey(DesktopServerExposureModeSchema),
@@ -155,6 +158,9 @@ export class DesktopAppSettings extends Context.Service<
     readonly setMainWindowBounds: (
       bounds: DesktopWindowBounds,
       isMaximized: boolean,
+    ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
+    readonly setKeepAwakeDisplayOn: (
+      enabled: boolean,
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly setServerExposureMode: (
       mode: DesktopServerExposureMode,
@@ -225,6 +231,7 @@ function normalizeDesktopSettingsDocument(
 
   return {
     linuxPasswordStore: normalizeLinuxPasswordStorePreference(parsed.linuxPasswordStore),
+    keepAwakeDisplayOn: parsed.keepAwakeDisplayOn === true,
     mainWindowBounds,
     mainWindowMaximized: mainWindowBounds !== null && parsed.mainWindowMaximized === true,
     serverExposureMode:
@@ -249,6 +256,9 @@ function toDesktopSettingsDocument(
 
   if (settings.linuxPasswordStore !== defaults.linuxPasswordStore) {
     document.linuxPasswordStore = settings.linuxPasswordStore;
+  }
+  if (settings.keepAwakeDisplayOn !== defaults.keepAwakeDisplayOn) {
+    document.keepAwakeDisplayOn = settings.keepAwakeDisplayOn;
   }
   if (settings.mainWindowBounds !== null) {
     document.mainWindowBounds = settings.mainWindowBounds;
@@ -309,6 +319,15 @@ function setMainWindowBounds(
         ...settings,
         mainWindowBounds: bounds,
         mainWindowMaximized: isMaximized,
+      };
+}
+
+function setKeepAwakeDisplayOn(settings: DesktopSettings, enabled: boolean): DesktopSettings {
+  return settings.keepAwakeDisplayOn === enabled
+    ? settings
+    : {
+        ...settings,
+        keepAwakeDisplayOn: enabled,
       };
 }
 
@@ -518,6 +537,12 @@ export const make = Effect.gen(function* () {
           },
         }),
       ),
+    setKeepAwakeDisplayOn: (enabled) =>
+      persist((settings) => setKeepAwakeDisplayOn(settings, enabled)).pipe(
+        Effect.withSpan("desktop.settings.setKeepAwakeDisplayOn", {
+          attributes: { enabled },
+        }),
+      ),
     setServerExposureMode: (mode) =>
       persist((settings) => setServerExposureMode(settings, mode)).pipe(
         Effect.withSpan("desktop.settings.setServerExposureMode", { attributes: { mode } }),
@@ -577,6 +602,8 @@ export const layerTest = (initialSettings: DesktopSettings = DEFAULT_DESKTOP_SET
         load: SynchronizedRef.get(settingsRef),
         setMainWindowBounds: (bounds, isMaximized) =>
           update((settings) => setMainWindowBounds(settings, bounds, isMaximized)),
+        setKeepAwakeDisplayOn: (enabled) =>
+          update((settings) => setKeepAwakeDisplayOn(settings, enabled)),
         setServerExposureMode: (mode) =>
           update((settings) => setServerExposureMode(settings, mode)),
         setTailscaleServe: (input) => update((settings) => setTailscaleServe(settings, input)),

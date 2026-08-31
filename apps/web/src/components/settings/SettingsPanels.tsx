@@ -1944,6 +1944,70 @@ function LegacyFeaturesSection() {
   );
 }
 
+function KeepAwakeDisplaySetting() {
+  const [keepDisplayOn, setKeepDisplayOn] = useState<boolean | null>(null);
+  const [pending, setPending] = useState(false);
+  const bridge = window.desktopBridge;
+  const supported =
+    isElectron &&
+    bridge?.getClientPlatform?.() === "darwin" &&
+    typeof bridge.getKeepAwakeState === "function" &&
+    typeof bridge.setKeepAwakeDisplay === "function";
+
+  useEffect(() => {
+    if (!supported) return;
+    let active = true;
+    void bridge
+      .getKeepAwakeState?.()
+      .then((state) => {
+        if (active) setKeepDisplayOn(state.keepDisplayOn);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [bridge, supported]);
+
+  const handleChange = useCallback(
+    async (enabled: boolean) => {
+      if (typeof bridge?.setKeepAwakeDisplay !== "function") return;
+      setPending(true);
+      try {
+        const state = await bridge.setKeepAwakeDisplay(enabled);
+        setKeepDisplayOn(state.keepDisplayOn);
+      } catch (error) {
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: "Could not change keep-awake display setting",
+            description: error instanceof Error ? error.message : "An unexpected error occurred.",
+          }),
+        );
+      } finally {
+        setPending(false);
+      }
+    },
+    [bridge],
+  );
+
+  if (!supported) return null;
+
+  return (
+    <SettingsRow
+      {...searchableSetting("keep-display-on")}
+      description="When Keep Mac awake is enabled, also prevent the display from turning off."
+      control={
+        <Switch
+          checked={keepDisplayOn ?? false}
+          disabled={keepDisplayOn === null || pending}
+          onCheckedChange={(checked) => void handleChange(Boolean(checked))}
+          aria-label="Keep display on while awake"
+        />
+      }
+    />
+  );
+}
+
 export function GeneralSettingsPanel() {
   const settings = usePrimarySettings();
   const updateSettings = useUpdatePrimarySettings();
@@ -2512,6 +2576,8 @@ export function GeneralSettingsPanel() {
             }
           />
         ) : null}
+
+        <KeepAwakeDisplaySetting />
 
         <SettingsRow
           {...searchableSetting("text-generation-model")}
