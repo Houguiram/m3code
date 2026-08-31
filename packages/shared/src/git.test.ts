@@ -7,6 +7,7 @@ import {
   isTemporaryWorktreeBranch,
   normalizeGitRemoteUrl,
   parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
+  stripWorktreeBranchPrefix,
   WORKTREE_BRANCH_PREFIX,
 } from "./git.ts";
 
@@ -86,6 +87,15 @@ describe("isTemporaryWorktreeBranch", () => {
     );
   });
 
+  it("matches temporary worktree refs created before the m3code rename", () => {
+    expect(isTemporaryWorktreeBranch("t3code/deadbeef")).toBe(true);
+    expect(isTemporaryWorktreeBranch("t3code/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(true);
+  });
+
+  it("generates temporary worktree refs under the m3code namespace", () => {
+    expect(buildTemporaryWorktreeBranchName(() => "deadbeef")).toBe("m3code/deadbeef");
+  });
+
   it("matches legacy UUID-shaped temporary worktree refs from older mobile builds", () => {
     expect(
       isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12`),
@@ -107,6 +117,18 @@ describe("isTemporaryWorktreeBranch", () => {
     expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/feature/demo`)).toBe(false);
     expect(isTemporaryWorktreeBranch("main")).toBe(false);
     expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/deadbeef-extra`)).toBe(false);
+  });
+});
+
+describe("stripWorktreeBranchPrefix", () => {
+  it("removes the current and legacy worktree namespaces", () => {
+    expect(stripWorktreeBranchPrefix(`${WORKTREE_BRANCH_PREFIX}/deadbeef`)).toBe("deadbeef");
+    expect(stripWorktreeBranchPrefix("t3code/deadbeef")).toBe("deadbeef");
+  });
+
+  it("leaves other refName names untouched", () => {
+    expect(stripWorktreeBranchPrefix("feature/demo")).toBe("feature/demo");
+    expect(stripWorktreeBranchPrefix("main")).toBe("main");
   });
 });
 
