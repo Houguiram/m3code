@@ -10,13 +10,17 @@ import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
 import { detectSourceControlProviderFromRemoteUrl } from "./sourceControl.ts";
 
-export const WORKTREE_BRANCH_PREFIX = "t3code";
-// Canonical form is `t3code/<8 hex>`. Older mobile builds generated `t3code/<uuid>`
+export const WORKTREE_BRANCH_PREFIX = "m3code";
+// Worktree branches created before the M3 Code rename use `t3code/…`, so both
+// prefixes stay recognized and strippable for worktrees already on disk.
+const LEGACY_WORKTREE_BRANCH_PREFIXES = ["t3code"];
+const WORKTREE_BRANCH_PREFIXES = [WORKTREE_BRANCH_PREFIX, ...LEGACY_WORKTREE_BRANCH_PREFIXES];
+// Canonical form is `m3code/<8 hex>`. Older mobile builds generated `<prefix>/<uuid>`
 // via Crypto.randomUUID() (always RFC 4122 v4), so the matcher also accepts exactly
 // that shape — version nibble `4`, variant nibble `[89ab]` — to keep those threads
 // eligible for branch regeneration without loosening beyond what was ever generated.
 const TEMP_WORKTREE_BRANCH_PATTERN = new RegExp(
-  `^${WORKTREE_BRANCH_PREFIX}\\/(?:[0-9a-f]{8}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$`,
+  `^(?:${WORKTREE_BRANCH_PREFIXES.join("|")})\\/(?:[0-9a-f]{8}|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$`,
 );
 
 /**
@@ -106,6 +110,15 @@ export function buildTemporaryWorktreeBranchName(
 
 export function isTemporaryWorktreeBranch(refName: string): boolean {
   return TEMP_WORKTREE_BRANCH_PATTERN.test(refName.trim().toLowerCase());
+}
+
+/**
+ * Drop a leading worktree branch namespace, current or legacy, so a name can be
+ * rebuilt under the canonical prefix.
+ */
+export function stripWorktreeBranchPrefix(refName: string): string {
+  const prefix = WORKTREE_BRANCH_PREFIXES.find((candidate) => refName.startsWith(`${candidate}/`));
+  return prefix === undefined ? refName : refName.slice(prefix.length + 1);
 }
 
 /**
