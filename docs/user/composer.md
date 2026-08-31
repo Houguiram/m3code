@@ -77,6 +77,9 @@ only the normal message text when you submit the draft.
 Type `/` to open the command menu. Type `$` to find and add a skill. Skill rows show their source,
 such as System, Personal, Project, or App.
 
+The skill list follows the active project or thread worktree, so skills checked into that workspace
+appear alongside personal skills even when the T3 Code server was started elsewhere.
+
 On mobile, these menus are available on the **New task** screen before you start a thread. They
 use the skills and commands from the selected environment and provider.
 
