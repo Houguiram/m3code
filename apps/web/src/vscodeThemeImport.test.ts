@@ -55,6 +55,21 @@ const VSCODE_DARK = {
   tokenColors: [],
 };
 
+const NOCTIS_LUX = {
+  name: "Noctis Lux",
+  type: "light",
+  colors: {
+    "editor.background": "#fef8ec",
+    "editor.foreground": "#005661",
+    focusBorder: "#f2edde",
+    "button.background": "#099",
+    "button.foreground": "#f1f1f1",
+    "button.hoverBackground": "#0cc",
+    "list.activeSelectionBackground": "#b6e1e7",
+    "list.activeSelectionForeground": "#005661",
+  },
+};
+
 describe("VS Code theme import", () => {
   it("recognises workbench themes and rejects our own files", () => {
     expect(isVsCodeThemeFile(VSCODE_DARK)).toBe(true);
@@ -100,6 +115,78 @@ describe("VS Code theme import", () => {
     expect(contrastRatio(colors.sidebarForeground, colors.sidebar)).toBeGreaterThanOrEqual(4.5);
     expect(
       contrastRatio(colors.messageActionForeground, colors.messageAction),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("preserves authored Noctis-style button and message pairs", () => {
+    const theme = parseVsCodeThemeFile(NOCTIS_LUX);
+
+    expect(asHex(theme.colors.accent)).toBe("#009999");
+    expect(asHex(theme.colors.focus)).toBe("#f2edde");
+    expect(asHex(theme.colors.messageAction)).toBe("#009999");
+    expect(asHex(theme.colors.messageActionForeground)).toBe("#f1f1f1");
+    expect(asHex(theme.colors.messageActionHover)).toBe("#00cccc");
+    expect(
+      contrastRatio(theme.colors.messageActionForeground, theme.colors.messageAction),
+    ).toBeLessThan(4.5);
+    expect(asHex(theme.colors.messageSurface)).toBe("#b6e1e7");
+    expect(asHex(theme.colors.messageForeground)).toBe("#005661");
+  });
+
+  it("derives a button foreground that remains readable across base and hover states", () => {
+    const theme = parseVsCodeThemeFile({
+      ...NOCTIS_LUX,
+      colors: {
+        ...NOCTIS_LUX.colors,
+        "button.foreground": undefined,
+      },
+    });
+
+    expect(
+      contrastRatio(theme.colors.messageActionForeground, theme.colors.messageAction),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(theme.colors.messageActionForeground, theme.colors.messageActionHover),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("constrains an incompatible hover color when deriving the button foreground", () => {
+    const theme = parseVsCodeThemeFile({
+      ...NOCTIS_LUX,
+      colors: {
+        ...NOCTIS_LUX.colors,
+        "button.background": "#ffffff",
+        "button.foreground": undefined,
+        "button.hoverBackground": "#000000",
+      },
+    });
+
+    expect(asHex(theme.colors.messageActionHover)).toBe("#ffffff");
+    expect(
+      contrastRatio(theme.colors.messageActionForeground, theme.colors.messageAction),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(theme.colors.messageActionForeground, theme.colors.messageActionHover),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("rejects authored interactive foregrounds that effectively disappear", () => {
+    const theme = parseVsCodeThemeFile({
+      ...NOCTIS_LUX,
+      colors: {
+        ...NOCTIS_LUX.colors,
+        "button.foreground": "#009999",
+        "list.activeSelectionForeground": "#b6e1e7",
+      },
+    });
+
+    expect(asHex(theme.colors.messageActionForeground)).not.toBe("#009999");
+    expect(asHex(theme.colors.messageForeground)).not.toBe("#b6e1e7");
+    expect(
+      contrastRatio(theme.colors.messageActionForeground, theme.colors.messageAction),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(theme.colors.messageForeground, theme.colors.messageSurface),
     ).toBeGreaterThanOrEqual(4.5);
   });
 
