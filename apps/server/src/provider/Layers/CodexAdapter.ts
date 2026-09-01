@@ -27,7 +27,9 @@ import {
   ProviderSendTurnInput,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as Cause from "effect/Cause";
 import * as Crypto from "effect/Crypto";
+import * as Deferred from "effect/Deferred";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
@@ -94,6 +96,7 @@ interface CodexAdapterSessionContext {
   readonly runtime: CodexSessionRuntimeShape;
   readonly eventFiber: Fiber.Fiber<void, never>;
   stopped: boolean;
+  stopDone: Deferred.Deferred<void, ProviderAdapterProcessError> | undefined;
 }
 
 function mapCodexRuntimeError(
@@ -1675,7 +1678,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
         }
 
         const existing = sessions.get(input.threadId);
-        if (existing && !existing.stopped) {
+        if (existing) {
           yield* Effect.suspend(() => stopSessionInternal(existing));
         }
 
@@ -1782,6 +1785,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
           runtime,
           eventFiber,
           stopped: false,
+          stopDone: undefined,
         });
         sessionScopeTransferred = true;
 
@@ -1963,14 +1967,35 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
   const stopSessionInternal = Effect.fn("stopSessionInternal")(function* (
     session: CodexAdapterSessionContext,
   ) {
-    if (session.stopped) {
+    if (session.stopDone !== undefined) {
+      return yield* Deferred.await(session.stopDone);
+    }
+    const stopDone = yield* Deferred.make<void, ProviderAdapterProcessError>();
+    session.stopDone = stopDone;
+    session.stopped = true;
+
+    const exit = yield* session.runtime.close.pipe(
+      Effect.andThen(Scope.close(session.scope, Exit.void)),
+      Effect.andThen(Fiber.interrupt(session.eventFiber)),
+      Effect.ensuring(
+        Effect.sync(() => {
+          sessions.delete(session.threadId);
+        }),
+      ),
+      Effect.exit,
+    );
+    if (Exit.isSuccess(exit)) {
+      yield* Deferred.succeed(stopDone, undefined);
       return;
     }
-    session.stopped = true;
-    sessions.delete(session.threadId);
-    yield* session.runtime.close.pipe(Effect.ignore);
-    yield* Effect.ignore(Scope.close(session.scope, Exit.void));
-    yield* Fiber.interrupt(session.eventFiber).pipe(Effect.ignore);
+    const error = new ProviderAdapterProcessError({
+      provider: PROVIDER,
+      threadId: session.threadId,
+      detail: "Failed to stop Codex app-server process.",
+      cause: Cause.squash(exit.cause),
+    });
+    yield* Deferred.fail(stopDone, error);
+    return yield* error;
   });
 
   const stopSession: CodexAdapterShape["stopSession"] = (threadId) =>
@@ -1990,7 +2015,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
     );
 
   const hasSession: CodexAdapterShape["hasSession"] = (threadId) =>
-    Effect.succeed(Boolean(sessions.get(threadId) && !sessions.get(threadId)?.stopped));
+    Effect.succeed(sessions.has(threadId));
 
   const stopAll: CodexAdapterShape["stopAll"] = () =>
     Effect.forEach(Array.from(sessions.values()), stopSessionInternal, {
