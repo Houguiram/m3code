@@ -291,8 +291,10 @@ export function parseVsCodeThemeFile(value: unknown): ThemeDefinition {
       solidOver(canvas, "panel.border", "editorGroup.border", "contrastBorder") ?? derived.border,
     input: solidOver(canvas, "input.border", "dropdown.border") ?? derived.input,
     placeholder: readableOn(canvasHex, derived.placeholder, "input.placeholderForeground"),
-    error: readableOn(canvasHex, derived.error, "editorError.foreground", "errorForeground"),
-    warning: readableOn(canvasHex, derived.warning, "editorWarning.foreground"),
+    // `error` / `warning` are destructive *fills* (stop button, badges). VS Code
+    // `editorError.foreground` is text on the editor, so `readableOn(canvas)`
+    // either keeps a too-light fill or, when that text misses AA, replaces it
+    // with white. Keep the derived standard reds/ambers instead.
     accentSurface: accentSurfaceHex,
     accentSurfaceForeground:
       authoredOn(accentSurfaceHex, "list.activeSelectionForeground") ??
