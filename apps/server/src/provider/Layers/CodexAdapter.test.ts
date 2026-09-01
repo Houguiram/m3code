@@ -1573,6 +1573,49 @@ scopedLifecycleLayer("CodexAdapterLive scoped lifecycle", (it) => {
       NodeAssert.equal(yield* adapter.hasSession(asThreadId("thread-stop")), false);
     }),
   );
+
+  it.effect("keeps hasSession true until runtime close finishes", () =>
+    Effect.gen(function* () {
+      const adapter = yield* CodexAdapter;
+      const threadId = asThreadId("thread-stop-waits-for-close");
+
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("codex"),
+        threadId,
+        runtimeMode: "full-access",
+      });
+
+      const runtime = scopedLifecycleRuntimeFactory.lastRuntime;
+      NodeAssert.ok(runtime);
+
+      let releaseClose: (() => void) | undefined;
+      const closeStarted = new Promise<void>((resolve) => {
+        runtime.closeImpl.mockImplementation(
+          () =>
+            new Promise<undefined>((release) => {
+              resolve();
+              releaseClose = () => {
+                release(undefined);
+              };
+            }),
+        );
+      });
+
+      const stopFiber = yield* adapter.stopSession(threadId).pipe(Effect.forkChild);
+      yield* Effect.promise(() => closeStarted);
+      NodeAssert.equal(yield* adapter.hasSession(threadId), true);
+      NodeAssert.equal(runtime.closeImpl.mock.calls.length, 1);
+
+      const overlappingStop = yield* adapter.stopSession(threadId).pipe(Effect.forkChild);
+      NodeAssert.ok(releaseClose);
+      releaseClose();
+      yield* Fiber.join(stopFiber);
+      yield* Fiber.join(overlappingStop);
+
+      NodeAssert.equal(runtime.closeImpl.mock.calls.length, 1);
+      NodeAssert.equal(yield* adapter.hasSession(threadId), false);
+    }).pipe(TestClock.withLive),
+  );
 });
 
 const scopedFailureRuntimeFactory = makeScopedRuntimeFactory({ failConstruction: true });

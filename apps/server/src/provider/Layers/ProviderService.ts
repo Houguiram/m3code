@@ -175,6 +175,15 @@ function readPersistedCwd(
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function readPersistedResumeCursor(
+  binding: ProviderSessionDirectory.ProviderRuntimeBinding | undefined,
+): unknown | undefined {
+  if (binding?.resumeCursor === null || binding?.resumeCursor === undefined) {
+    return undefined;
+  }
+  return binding.resumeCursor;
+}
+
 const dieOnMissingBindingInstanceId = (
   operation: string,
   payload: {
@@ -543,6 +552,36 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
     } as const;
   });
 
+  const canReusePersistedResumeState = Effect.fn("canReusePersistedResumeState")(function* (input: {
+    readonly persistedBinding: ProviderSessionDirectory.ProviderRuntimeBinding | undefined;
+    readonly targetInstanceId: ProviderInstanceId;
+    readonly targetDriverKind: ProviderDriverKind;
+    readonly targetContinuationKey: string;
+  }) {
+    const binding = input.persistedBinding;
+    if (!binding) {
+      return false;
+    }
+    if (binding.providerInstanceId === input.targetInstanceId) {
+      return true;
+    }
+    if (binding.provider !== input.targetDriverKind) {
+      return false;
+    }
+    const sourceInstanceId = binding.providerInstanceId;
+    if (sourceInstanceId === undefined) {
+      return false;
+    }
+    const sourceInfo = yield* registry.getInstanceInfo(sourceInstanceId).pipe(Effect.option);
+    if (Option.isNone(sourceInfo)) {
+      return false;
+    }
+    return (
+      sourceInfo.value.driverKind === input.targetDriverKind &&
+      sourceInfo.value.continuationIdentity.continuationKey === input.targetContinuationKey
+    );
+  });
+
   const stopStaleSessionsForThread = Effect.fn("stopStaleSessionsForThread")(function* (input: {
     readonly threadId: ThreadId;
     readonly currentInstanceId: ProviderInstanceId;
@@ -559,22 +598,12 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
                 return;
               }
 
-              yield* adapter.stopSession(input.threadId).pipe(
-                Effect.tap(() =>
-                  analytics.record("provider.session.stopped", {
-                    provider: adapter.provider,
-                  }),
-                ),
-                Effect.catchCause((cause) =>
-                  Effect.logWarning("provider.session.stop-stale-failed", {
-                    threadId: input.threadId,
-                    provider: adapter.provider,
-                    cause,
-                  }),
-                ),
-              );
+              yield* adapter.stopSession(input.threadId);
+              yield* analytics.record("provider.session.stopped", {
+                provider: adapter.provider,
+              });
             }),
-      { discard: true },
+      { discard: true, concurrency: 1 },
     );
   });
 
@@ -619,36 +648,47 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
           );
         }
         const persistedBinding = Option.getOrUndefined(yield* directory.getBinding(threadId));
+        const reusePersistedResumeState = yield* canReusePersistedResumeState({
+          persistedBinding,
+          targetInstanceId: resolvedInstanceId,
+          targetDriverKind: resolvedProvider,
+          targetContinuationKey: instanceInfo.continuationIdentity.continuationKey,
+        });
         const effectiveResumeCursor =
           input.resumeCursor ??
-          (persistedBinding?.providerInstanceId === resolvedInstanceId
-            ? persistedBinding.resumeCursor
-            : undefined);
+          (reusePersistedResumeState ? readPersistedResumeCursor(persistedBinding) : undefined);
         const effectiveCwd =
           input.cwd ??
-          (persistedBinding?.providerInstanceId === resolvedInstanceId
-            ? readPersistedCwd(persistedBinding.runtimePayload)
+          (reusePersistedResumeState
+            ? readPersistedCwd(persistedBinding?.runtimePayload)
             : undefined);
         yield* Effect.annotateCurrentSpan({
           "provider.kind": resolvedProvider,
           "provider.resume_cursor.source":
             input.resumeCursor !== undefined
               ? "request"
-              : effectiveResumeCursor !== undefined &&
-                  persistedBinding?.providerInstanceId === resolvedInstanceId
-                ? "persisted"
+              : effectiveResumeCursor !== undefined && reusePersistedResumeState
+                ? persistedBinding?.providerInstanceId === resolvedInstanceId
+                  ? "persisted"
+                  : "persisted-compatible"
                 : "none",
           "provider.resume_cursor.present": effectiveResumeCursor !== undefined,
           "provider.cwd.source":
             input.cwd !== undefined
               ? "request"
-              : effectiveCwd !== undefined &&
-                  persistedBinding?.providerInstanceId === resolvedInstanceId
+              : effectiveCwd !== undefined && reusePersistedResumeState
                 ? "persisted"
                 : "none",
           "provider.cwd.effective": effectiveCwd ?? "",
         });
         const adapter = yield* registry.getByInstance(resolvedInstanceId);
+        // Release any other instance's writer for this thread before starting.
+        // Compatible Codex accounts share one native thread lock, so starting
+        // the replacement first fails with "already has an active writer".
+        yield* stopStaleSessionsForThread({
+          threadId,
+          currentInstanceId: resolvedInstanceId,
+        });
         yield* prepareMcpSession(threadId, resolvedInstanceId);
         const session = yield* adapter
           .startSession({
@@ -670,11 +710,6 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
           ...session,
           providerInstanceId: resolvedInstanceId,
         };
-
-        yield* stopStaleSessionsForThread({
-          threadId,
-          currentInstanceId: resolvedInstanceId,
-        });
         yield* upsertSessionBinding(sessionWithInstance, threadId, {
           modelSelection: input.modelSelection,
         });
