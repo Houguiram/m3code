@@ -148,7 +148,10 @@ export function lenientThemeColorOverrides(
 
 function parseStoredThemeColors(value: unknown, appearance: ThemeAppearance): ThemeColors | null {
   if (!isRecord(value)) return null;
-  return { ...getDefaultThemeColors(appearance), ...lenientThemeColorOverrides(value) };
+  return withUsableErrorFill({
+    ...getDefaultThemeColors(appearance),
+    ...lenientThemeColorOverrides(value),
+  });
 }
 
 function parseStoredThemeVariants(
@@ -571,17 +574,19 @@ function themeRgbToThemeColor(color: ThemeRgbColor): string {
 }
 
 function decodeThemeColors(colors: ThemeColors): ThemeColors {
-  return Object.fromEntries(
-    THEME_COLOR_ROLES.map((role) => {
-      const color = toCanonicalThemeColor(colors[role]);
-      if (!color) {
-        throw new Error(
-          `The color for "${role}" must be a literal CSS color such as oklch(0.62 0.2 280).`,
-        );
-      }
-      return [role, color];
-    }),
-  ) as Record<ThemeColorRole, string>;
+  return withUsableErrorFill(
+    Object.fromEntries(
+      THEME_COLOR_ROLES.map((role) => {
+        const color = toCanonicalThemeColor(colors[role]);
+        if (!color) {
+          throw new Error(
+            `The color for "${role}" must be a literal CSS color such as oklch(0.62 0.2 280).`,
+          );
+        }
+        return [role, color];
+      }),
+    ) as Record<ThemeColorRole, string>,
+  );
 }
 
 function canonicalizeThemeDefinition(theme: ThemeDefinition): ThemeDefinition {
@@ -833,6 +838,26 @@ function standardStatusColors(canvas: ThemeRgbColor): {
     warning: toCanonicalThemeColor(standard.warning)!,
     warningForeground: readableOn(standard.warningForeground, warningSurface),
     warningSurface: themeRgbToThemeColor(warningSurface),
+  };
+}
+
+/**
+ * Destructive controls (`bg-destructive text-white`) paint `error` as a fill
+ * under a white glyph. A color that cannot host that glyph was usually a
+ * foreground, or the greyscale last resort from VS Code import. Swap the
+ * error family for the standard reds so already-imported palettes recover.
+ */
+function withUsableErrorFill(colors: ThemeColors): ThemeColors {
+  const canvas = parseThemeRgbColor(colors.canvas, { r: 0, g: 0, b: 0 });
+  if (themeContrastRatio(parseThemeRgbColor(colors.error, canvas), THEME_WHITE_FOREGROUND) >= 2.5) {
+    return colors;
+  }
+  const standard = standardStatusColors(canvas);
+  return {
+    ...colors,
+    error: standard.error,
+    errorForeground: standard.errorForeground,
+    errorSurface: standard.errorSurface,
   };
 }
 
@@ -1769,10 +1794,10 @@ export function parseThemeFile(value: unknown): ThemeDefinition {
         throw new Error(`Theme variants must not repeat the base appearance "${appearance}".`);
       }
       const variantFallback = getDefaultThemeColors(variantAppearance);
-      variants[variantAppearance] = {
+      variants[variantAppearance] = withUsableErrorFill({
         ...variantFallback,
         ...parseThemeColorOverrides(variantColors),
-      };
+      });
     }
   }
 
@@ -1780,7 +1805,7 @@ export function parseThemeFile(value: unknown): ThemeDefinition {
     id,
     label: name.trim(),
     appearance,
-    colors: { ...fallback, ...overrides },
+    colors: withUsableErrorFill({ ...fallback, ...overrides }),
     ...(Object.keys(variants).length > 0 ? { variants } : {}),
     ...(collection ? { collection } : {}),
     ...(value.managed === true ? { managed: true } : {}),

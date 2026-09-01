@@ -55,6 +55,21 @@ const VSCODE_DARK = {
   tokenColors: [],
 };
 
+const NOCTIS_AZUREUS = {
+  name: "Noctis Azureus",
+  type: "dark",
+  colors: {
+    "editor.background": "#07273b",
+    "editor.foreground": "#becfda",
+    errorForeground: "#e34e1c",
+    "editorError.foreground": "#e34e1c",
+    "editorWarning.foreground": "#e69533",
+    "button.background": "#007f99",
+    "button.foreground": "#ebf7ff",
+    "button.hoverBackground": "#0ac",
+  },
+};
+
 const NOCTIS_LUX = {
   name: "Noctis Lux",
   type: "light",
@@ -116,6 +131,22 @@ describe("VS Code theme import", () => {
     expect(
       contrastRatio(colors.messageActionForeground, colors.messageAction),
     ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("does not use VS Code error text as a destructive fill", () => {
+    const theme = parseVsCodeThemeFile(NOCTIS_AZUREUS);
+
+    // Noctis Azureus's editorError.foreground (#e34e1c) misses AA on the navy
+    // canvas, so the old text-on-canvas gate replaced it with white. The stop
+    // button paints error as a fill under a white glyph.
+    expect(asHex(theme.colors.error)).not.toBe("#ffffff");
+    expect(asHex(theme.colors.error)).not.toBe("#e34e1c");
+    expect(contrastRatio(theme.colors.error, "#ffffff")).toBeGreaterThanOrEqual(2.5);
+    const [errorRed, errorGreen, errorBlue] = [1, 3, 5].map((index) =>
+      Number.parseInt(asHex(theme.colors.error).slice(index, index + 2), 16),
+    ) as [number, number, number];
+    expect(errorRed).toBeGreaterThan(errorGreen * 2);
+    expect(errorRed).toBeGreaterThan(errorBlue * 2);
   });
 
   it("preserves authored Noctis-style button and message pairs", () => {

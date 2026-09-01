@@ -195,6 +195,66 @@ describe("theme files", () => {
     }
   });
 
+  it("replaces an error fill that cannot host a white glyph", () => {
+    const theme = parseThemeFile({
+      version: THEME_FILE_VERSION,
+      name: "Washed stop",
+      appearance: "dark",
+      colors: {
+        canvas: "#07273b",
+        error: "#ffffff",
+      },
+    });
+
+    expect(asHex(theme.colors.error)).not.toBe("#ffffff");
+    expect(contrastRatio(theme.colors.error, "#ffffff")).toBeGreaterThanOrEqual(2.5);
+  });
+
+  it("keeps an authored error fill that remains readable under white", () => {
+    const theme = parseThemeFile({
+      version: THEME_FILE_VERSION,
+      name: "Rust stop",
+      appearance: "dark",
+      colors: {
+        canvas: "#07273b",
+        error: "#e34e1c",
+      },
+    });
+
+    expect(asHex(theme.colors.error)).toBe("#e34e1c");
+  });
+
+  it("repairs a stored palette whose error fill was the VS Code white fallback", () => {
+    const stored = new Map<string, string>([
+      [
+        CUSTOM_THEMES_STORAGE_KEY,
+        JSON.stringify([
+          {
+            id: "noctis-azureus",
+            label: "Noctis Azureus",
+            appearance: "dark",
+            colors: { canvas: "#07273b", error: "#ffffff" },
+          },
+        ]),
+      ],
+    ]);
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => stored.get(key) ?? null,
+        setItem: (key: string, value: string) => stored.set(key, value),
+      },
+    });
+
+    invalidateCustomThemes();
+    const theme = getCustomThemes().find((entry) => entry.id === "noctis-azureus");
+    expect(theme).toBeDefined();
+    expect(asHex(theme!.colors.error)).not.toBe("#ffffff");
+    expect(contrastRatio(theme!.colors.error, "#ffffff")).toBeGreaterThanOrEqual(2.5);
+
+    vi.unstubAllGlobals();
+    invalidateCustomThemes();
+  });
+
   it("merges a small user file onto the matching contrast-safe base palette", () => {
     const theme = parseThemeFile({
       version: THEME_FILE_VERSION,
