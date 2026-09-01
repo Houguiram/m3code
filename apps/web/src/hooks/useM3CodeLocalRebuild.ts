@@ -12,7 +12,15 @@ export function useM3CodeLocalRebuild() {
     const bridge = window.desktopBridge;
     const openTerminal = bridge?.openM3CodeLoginTerminal;
     if (typeof openTerminal !== "function" || checkoutPath === null) {
-      return { started: false as const, error: "Local rebuild is not available." };
+      const description = "Local rebuild is not available.";
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Could not start local rebuild",
+          description,
+        }),
+      );
+      return { started: false as const, error: description };
     }
     let confirmed = false;
     try {

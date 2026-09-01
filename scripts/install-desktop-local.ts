@@ -197,6 +197,9 @@ async function main(
   const archivePath = NodePath.join(repoRoot, "release", archiveName);
   const destinationApp = NodePath.join(applicationDirectory, `${desktopPackage.productName}.app`);
 
+  NodeProcess.stdout.write("Installing dependencies...\n");
+  await runInteractive("vp", ["i"]);
+
   NodeProcess.stdout.write(
     `Building M3 Code ${desktopPackage.version} for ${hostArchitecture}...\n`,
   );
