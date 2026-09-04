@@ -18,6 +18,7 @@ import {
   derivePendingApprovals,
   derivePendingUserInputs,
   deriveThreadFeedPresentation,
+  deriveThreadFeedTurnRuntimes,
   isPendingUserInputOptionSelected,
   setPendingUserInputCustomAnswer,
   togglePendingUserInputOptionSelection,
@@ -1556,6 +1557,102 @@ describe("buildThreadFeed", () => {
       "work-toggle:work-group:tool-completed",
       "assistant-final",
     ]);
+  });
+
+  it("reports one turn runtime for both the fold row and the terminal message", () => {
+    const turnId = TurnId.make("turn-1");
+    const thread = makeThread({
+      id: ThreadId.make("thread-runtime"),
+      projectId: ProjectId.make("project-1"),
+      title: "Runtime",
+      latestTurn: {
+        turnId,
+        state: "completed",
+        requestedAt: "2026-04-01T00:00:00.000Z",
+        startedAt: "2026-04-01T00:00:01.000Z",
+        completedAt: "2026-04-01T00:00:18.000Z",
+        assistantMessageId: MessageId.make("assistant-final"),
+      },
+      messages: [
+        {
+          id: MessageId.make("assistant-first"),
+          role: "assistant",
+          text: "Looking into it.",
+          turnId,
+          streaming: false,
+          createdAt: "2026-04-01T00:00:02.000Z",
+          updatedAt: "2026-04-01T00:00:03.000Z",
+        },
+        {
+          id: MessageId.make("assistant-final"),
+          role: "assistant",
+          text: "Done.",
+          turnId,
+          streaming: false,
+          createdAt: "2026-04-01T00:00:17.000Z",
+          updatedAt: "2026-04-01T00:00:18.000Z",
+        },
+      ],
+      activities: [
+        makeActivity({
+          id: EventId.make("tool-completed"),
+          kind: "tool.completed",
+          tone: "tool",
+          summary: "Read files",
+          createdAt: "2026-04-01T00:00:05.000Z",
+          turnId,
+          payload: {
+            title: "Read files",
+            itemType: "file_read",
+            status: "completed",
+          },
+        }),
+      ],
+    });
+
+    const feed = buildThreadFeed(thread);
+    const runtimes = deriveThreadFeedTurnRuntimes(feed, thread.latestTurn);
+    // Latest-turn timings win: startedAt (00:00:01) → completedAt (00:00:18).
+    expect(runtimes.get(turnId)).toEqual({ elapsedMs: 17_000, label: "Worked for 17s" });
+
+    const collapsed = deriveThreadFeedPresentation(feed, thread.latestTurn, new Set());
+    expect(collapsed.find((entry) => entry.type === "turn-fold")).toMatchObject({
+      label: "Worked for 17s",
+    });
+  });
+
+  it("labels an interrupted turn's runtime as stopped", () => {
+    const turnId = TurnId.make("turn-1");
+    const thread = makeThread({
+      id: ThreadId.make("thread-interrupted-runtime"),
+      projectId: ProjectId.make("project-1"),
+      title: "Interrupted runtime",
+      latestTurn: {
+        turnId,
+        state: "interrupted",
+        requestedAt: "2026-04-01T00:00:00.000Z",
+        startedAt: "2026-04-01T00:00:00.000Z",
+        completedAt: "2026-04-01T00:00:47.000Z",
+        assistantMessageId: MessageId.make("assistant-final"),
+      },
+      messages: [
+        {
+          id: MessageId.make("assistant-final"),
+          role: "assistant",
+          text: "Partial answer.",
+          turnId,
+          streaming: false,
+          createdAt: "2026-04-01T00:00:20.000Z",
+          updatedAt: "2026-04-01T00:00:22.000Z",
+        },
+      ],
+    });
+
+    const runtimes = deriveThreadFeedTurnRuntimes(buildThreadFeed(thread), thread.latestTurn);
+    expect(runtimes.get(turnId)).toEqual({
+      elapsedMs: 47_000,
+      label: "You stopped after 47s",
+    });
   });
 
   it("folds assistant messages between the first and terminal messages", () => {

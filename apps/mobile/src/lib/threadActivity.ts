@@ -1349,26 +1349,32 @@ interface ThreadFeedTurnFold {
   readonly label: string;
 }
 
-function deriveThreadFeedTurnFolds(
-  feed: ReadonlyArray<ThreadFeedEntry>,
-  latestTurn: ThreadFeedLatestTurn | null,
-): ReadonlyMap<string, ThreadFeedTurnFold> {
-  const firstAssistantMessageIdByTurn = new Map<TurnId, string>();
-  const terminalAssistantMessageIdByTurn = new Map<TurnId, string>();
-  for (const entry of feed) {
-    if (entry.type === "message" && entry.message.role === "assistant" && entry.message.turnId) {
-      if (!firstAssistantMessageIdByTurn.has(entry.message.turnId)) {
-        firstAssistantMessageIdByTurn.set(entry.message.turnId, entry.id);
-      }
-      terminalAssistantMessageIdByTurn.set(entry.message.turnId, entry.id);
-    }
-  }
+interface ThreadFeedTurnGroup {
+  readonly entries: ThreadFeedEntry[];
+  /**
+   * The user message that kicked the turn off. Entry timestamps alone
+   * undercount the duration (the first entry appears only once the provider
+   * starts producing output), and a turn cut short by a steer may hold a
+   * single instantaneous commentary message.
+   */
+  readonly startBoundary: string | null;
+  firstAssistantEntryId: string | null;
+  terminalAssistantEntry: Extract<ThreadFeedEntry, { readonly type: "message" }> | null;
+  hasStreamingMessage: boolean;
+}
 
-  interface TurnGroup {
-    readonly entries: ThreadFeedEntry[];
-    readonly startBoundary: string | null;
-  }
-  const groupsByTurnId = new Map<TurnId, TurnGroup>();
+export interface ThreadFeedTurnRuntime {
+  /** Wall-clock time the turn spent working, or null when it is unknowable. */
+  readonly elapsedMs: number | null;
+  /** Sentence form of the runtime, e.g. "Worked for 2m 30s". */
+  readonly label: string;
+}
+
+/** Buckets feed entries by the turn that produced them, in feed order. */
+function deriveThreadFeedTurnGroups(
+  feed: ReadonlyArray<ThreadFeedEntry>,
+): ReadonlyMap<TurnId, ThreadFeedTurnGroup> {
+  const groupsByTurnId = new Map<TurnId, ThreadFeedTurnGroup>();
   let pendingUserBoundary: string | null = null;
   for (const entry of feed) {
     if (entry.type === "message" && entry.message.role === "user") {
@@ -1389,31 +1395,100 @@ function deriveThreadFeedTurnFolds(
       group = {
         entries: [],
         startBoundary: pendingUserBoundary,
+        firstAssistantEntryId: null,
+        terminalAssistantEntry: null,
+        hasStreamingMessage: false,
       };
       pendingUserBoundary = null;
       groupsByTurnId.set(turnId, group);
     }
     group.entries.push(entry);
+    if (entry.type === "message") {
+      if (entry.message.role === "assistant") {
+        group.firstAssistantEntryId ??= entry.id;
+        group.terminalAssistantEntry = entry;
+      }
+      if (entry.message.streaming) {
+        group.hasStreamingMessage = true;
+      }
+    }
   }
+  return groupsByTurnId;
+}
 
-  const unsettledTurnId = deriveUnsettledTurnId(latestTurn);
+function deriveTurnRuntimes(
+  groupsByTurnId: ReadonlyMap<TurnId, ThreadFeedTurnGroup>,
+  latestTurn: ThreadFeedLatestTurn | null,
+): ReadonlyMap<TurnId, ThreadFeedTurnRuntime> {
+  const runtimeByTurnId = new Map<TurnId, ThreadFeedTurnRuntime>();
+  for (const [turnId, group] of groupsByTurnId) {
+    const firstEntry = group.entries[0];
+    const lastEntry = group.entries.at(-1);
+    if (!firstEntry || !lastEntry) {
+      continue;
+    }
+    const latestTurnMatches = latestTurn?.turnId === turnId;
+    // A turn cut short by a steer leaves trailing work entries behind its
+    // terminal message — take whichever ended last.
+    const lastEntryEnd =
+      lastEntry.type === "message" ? lastEntry.message.updatedAt : lastEntry.createdAt;
+    const elapsedMs =
+      latestTurnMatches && latestTurn.startedAt && latestTurn.completedAt
+        ? computeElapsedMs(latestTurn.startedAt, latestTurn.completedAt)
+        : computeElapsedMs(
+            group.startBoundary ?? firstEntry.createdAt,
+            maxIsoTimestamp(
+              group.terminalAssistantEntry?.message.updatedAt ?? null,
+              lastEntryEnd,
+            ) ?? lastEntryEnd,
+          );
+    const duration = elapsedMs === null ? null : formatDuration(elapsedMs);
+    const interrupted = latestTurnMatches && latestTurn.state === "interrupted";
+    const label = interrupted
+      ? duration
+        ? `You stopped after ${duration}`
+        : "You stopped this response"
+      : duration
+        ? `Worked for ${duration}`
+        : "Worked";
+
+    runtimeByTurnId.set(turnId, { elapsedMs, label });
+  }
+  return runtimeByTurnId;
+}
+
+/**
+ * How long each turn ran. The fold row and the terminal message's metadata
+ * both read from here, so one turn never reports two different durations.
+ */
+export function deriveThreadFeedTurnRuntimes(
+  feed: ReadonlyArray<ThreadFeedEntry>,
+  latestTurn: ThreadFeedLatestTurn | null,
+): ReadonlyMap<TurnId, ThreadFeedTurnRuntime> {
+  return deriveTurnRuntimes(deriveThreadFeedTurnGroups(feed), latestTurn);
+}
+
+function deriveThreadFeedTurnFolds(
+  groupsByTurnId: ReadonlyMap<TurnId, ThreadFeedTurnGroup>,
+  runtimeByTurnId: ReadonlyMap<TurnId, ThreadFeedTurnRuntime>,
+  unsettledTurnId: TurnId | null,
+): ReadonlyMap<string, ThreadFeedTurnFold> {
   const foldsByAnchorId = new Map<string, ThreadFeedTurnFold>();
   for (const [turnId, group] of groupsByTurnId) {
     const { entries } = group;
     if (turnId === unsettledTurnId) {
       continue;
     }
-    if (entries.some((entry) => entry.type === "message" && entry.message.streaming)) {
+    if (group.hasStreamingMessage) {
       continue;
     }
 
-    const firstAssistantMessageId = firstAssistantMessageIdByTurn.get(turnId);
-    const terminalAssistantMessageId = terminalAssistantMessageIdByTurn.get(turnId);
     const hiddenEntryIds = new Set(
       entries
         .filter(
           (entry) =>
-            entry.id !== firstAssistantMessageId && entry.id !== terminalAssistantMessageId,
+            entry.id !== group.firstAssistantEntryId &&
+            entry.id !== group.terminalAssistantEntry?.id,
         )
         .map((entry) => entry.id),
     );
@@ -1431,43 +1506,16 @@ function deriveThreadFeedTurnFolds(
       continue;
     }
 
-    const firstEntry = entries[0];
     const firstHiddenEntry = entries.find((entry) => hiddenEntryIds.has(entry.id));
-    const lastEntry = entries.at(-1);
-    if (!firstEntry || !firstHiddenEntry || !lastEntry) {
+    if (!firstHiddenEntry) {
       continue;
     }
-    const terminalEntry = terminalAssistantMessageId
-      ? entries.find((entry) => entry.id === terminalAssistantMessageId)
-      : null;
-    const latestTurnMatches = latestTurn?.turnId === turnId;
-    const lastEntryEnd =
-      lastEntry.type === "message" ? lastEntry.message.updatedAt : lastEntry.createdAt;
-    const elapsedMs =
-      latestTurnMatches && latestTurn.startedAt && latestTurn.completedAt
-        ? computeElapsedMs(latestTurn.startedAt, latestTurn.completedAt)
-        : computeElapsedMs(
-            group.startBoundary ?? firstEntry.createdAt,
-            maxIsoTimestamp(
-              terminalEntry?.type === "message" ? terminalEntry.message.updatedAt : null,
-              lastEntryEnd,
-            ) ?? lastEntryEnd,
-          );
-    const duration = elapsedMs === null ? null : formatDuration(elapsedMs);
-    const interrupted = latestTurnMatches && latestTurn.state === "interrupted";
-    const label = interrupted
-      ? duration
-        ? `You stopped after ${duration}`
-        : "You stopped this response"
-      : duration
-        ? `Worked for ${duration}`
-        : "Worked";
 
     foldsByAnchorId.set(firstHiddenEntry.id, {
       turnId,
       createdAt: firstHiddenEntry.createdAt,
       hiddenEntryIds,
-      label,
+      label: runtimeByTurnId.get(turnId)?.label ?? "Worked",
     });
   }
   return foldsByAnchorId;
@@ -1486,8 +1534,13 @@ export function deriveThreadFeedPresentation(
   const activeTailGroup = sourceFeed.findLast(
     (entry) => entry.type !== "message" || !isEmptyMessage(entry),
   );
-  const foldsByAnchorId = deriveThreadFeedTurnFolds(sourceFeed, latestTurn);
   const unsettledTurnId = deriveUnsettledTurnId(latestTurn);
+  const groupsByTurnId = deriveThreadFeedTurnGroups(sourceFeed);
+  const foldsByAnchorId = deriveThreadFeedTurnFolds(
+    groupsByTurnId,
+    deriveTurnRuntimes(groupsByTurnId, latestTurn),
+    unsettledTurnId,
+  );
   const isWorking = activeWorkStartedAt !== null;
   const collapsedEntryIds = new Set<string>();
   for (const fold of foldsByAnchorId.values()) {

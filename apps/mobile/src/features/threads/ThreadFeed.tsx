@@ -139,6 +139,7 @@ import {
 } from "../../lib/appearancePreferences";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useAppearanceCodeSurface } from "../settings/appearance/useAppearanceCodeSurface";
+import { formatDuration } from "@t3tools/shared/orchestrationTiming";
 import { markdownFileIconSource } from "@t3tools/mobile-markdown-text/file-icons";
 import {
   normalizeNativeMarkdownUrl,
@@ -147,9 +148,11 @@ import {
 } from "@t3tools/mobile-markdown-text/links";
 import {
   deriveThreadFeedPresentation,
+  deriveThreadFeedTurnRuntimes,
   isContextCompactionActivityGroup,
   type ThreadFeedEntry,
   type ThreadFeedLatestTurn,
+  type ThreadFeedTurnRuntime,
 } from "../../lib/threadActivity";
 import type { ThreadContentPresentation } from "./threadContentPresentation";
 import {
@@ -1375,6 +1378,7 @@ function renderFeedEntry(
     readonly workRowSizing: ReturnType<typeof deriveThreadWorkLogSizing>;
     readonly workGroupScrollPositions: Map<string, ThreadWorkGroupScrollPosition>;
     readonly terminalAssistantMessageIds: ReadonlySet<string>;
+    readonly turnRuntimeByTurnId: ReadonlyMap<TurnId, ThreadFeedTurnRuntime>;
     readonly unsettledTurnId: TurnId | null;
     readonly onCopyWorkRow: (rowId: string, value: string) => void;
     readonly onToggleWorkGroup: (groupId: string, anchorKey: string) => void;
@@ -1492,6 +1496,13 @@ function renderFeedEntry(
       props.terminalAssistantMessageIds.has(message.id) &&
       !assistantTurnStillInProgress &&
       !message.streaming;
+    // How long the turn ran before this answer landed, so scrolling back
+    // through history still shows what the live "Working for ..." row showed.
+    const turnRuntimeMs =
+      showAssistantMeta && message.turnId
+        ? (props.turnRuntimeByTurnId.get(message.turnId)?.elapsedMs ?? null)
+        : null;
+    const turnRuntimeLabel = turnRuntimeMs === null ? null : formatDuration(turnRuntimeMs);
 
     if (isUser) {
       const enterAnimated = isFreshTimestamp(message.createdAt);
@@ -1621,6 +1632,11 @@ function renderFeedEntry(
             <Text className="font-t3-medium text-xs tabular-nums text-adaptive-neutral-600-400">
               {timestampLabel}
             </Text>
+            {turnRuntimeLabel === null ? null : (
+              <Text className="font-t3-medium text-xs tabular-nums text-adaptive-neutral-600-400">
+                {`· ${turnRuntimeLabel}`}
+              </Text>
+            )}
           </View>
         ) : null}
       </Animated.View>
@@ -2434,6 +2450,10 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     }
     return new Set(terminalIdsByTurn.values());
   }, [props.feed]);
+  const turnRuntimeByTurnId = useMemo(
+    () => deriveThreadFeedTurnRuntimes(props.feed, props.latestTurn ?? null),
+    [props.feed, props.latestTurn],
+  );
   const unsettledTurnId =
     props.latestTurn &&
     (props.latestTurn.completedAt === null || props.latestTurn.state === "running")
@@ -2664,6 +2684,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             workRowSizing,
             workGroupScrollPositions,
             terminalAssistantMessageIds,
+            turnRuntimeByTurnId,
             unsettledTurnId,
             onCopyWorkRow,
             onToggleWorkGroup,
@@ -2694,6 +2715,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       workRowSizing,
       workGroupScrollPositions,
       terminalAssistantMessageIds,
+      turnRuntimeByTurnId,
       unsettledTurnId,
       iconSubtleColor,
       userBubbleColor,

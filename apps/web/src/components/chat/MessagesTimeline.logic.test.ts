@@ -1881,6 +1881,200 @@ describe("deriveMessagesTimelineRows", () => {
     expect(assistantRows.map((row) => row.showAssistantMeta)).toEqual([false, true]);
   });
 
+  it("reports the turn runtime on the terminal assistant message", () => {
+    const rows = deriveMessagesTimelineRows({
+      timelineEntries: [
+        {
+          id: "user-entry",
+          kind: "message",
+          createdAt: "2026-01-01T00:00:00Z",
+          message: {
+            id: "user-1" as never,
+            role: "user",
+            text: "Build it",
+            turnId: null,
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+            streaming: false,
+          },
+        },
+        {
+          id: "work-entry-1",
+          kind: "work",
+          createdAt: "2026-01-01T00:00:08Z",
+          entry: {
+            id: "work-1",
+            createdAt: "2026-01-01T00:00:08Z",
+            turnId: "turn-1" as never,
+            label: "Ran command",
+            tone: "tool" as const,
+          },
+        },
+        {
+          id: "assistant-final-entry",
+          kind: "message",
+          createdAt: "2026-01-01T00:00:20Z",
+          message: {
+            id: "assistant-final" as never,
+            role: "assistant",
+            text: "Done.",
+            turnId: "turn-1" as never,
+            createdAt: "2026-01-01T00:00:20Z",
+            updatedAt: "2026-01-01T00:00:22Z",
+            streaming: false,
+          },
+        },
+      ],
+      isWorking: false,
+      activeTurnStartedAt: null,
+      turnDiffSummaryByAssistantMessageId: new Map(),
+      revertTurnCountByUserMessageId: new Map(),
+    });
+
+    const foldRow = rows.find((row) => row.kind === "turn-fold");
+    const terminalRow = rows.find(
+      (row): row is Extract<(typeof rows)[number], { kind: "message" }> =>
+        row.kind === "message" && row.message.role === "assistant",
+    );
+
+    // User message boundary (00:00:00) → terminal message updatedAt (00:00:22).
+    expect(terminalRow?.turnRuntimeMs).toBe(22_000);
+    // The fold row and the message metadata must never disagree.
+    expect(terminalRow?.turnRuntimeLabel).toBe("Worked for 22s");
+    expect(foldRow?.kind === "turn-fold" ? foldRow.label : null).toBe("Worked for 22s");
+  });
+
+  it("carries the turn runtime onto a detached assistant-meta footer", () => {
+    const turnId = TurnId.make("turn-1");
+    const rows = deriveMessagesTimelineRows({
+      timelineEntries: [
+        {
+          id: "assistant-final-entry",
+          kind: "message",
+          createdAt: "2026-01-01T00:00:05Z",
+          message: {
+            id: "assistant-final" as never,
+            role: "assistant",
+            text: "Done.",
+            turnId,
+            createdAt: "2026-01-01T00:00:05Z",
+            updatedAt: "2026-01-01T00:00:06Z",
+            streaming: false,
+          },
+        },
+        {
+          id: "work-entry-after-text",
+          kind: "work",
+          createdAt: "2026-01-01T00:00:07Z",
+          entry: {
+            id: "work-after-text",
+            createdAt: "2026-01-01T00:00:07Z",
+            turnId,
+            label: "Ran command",
+            tone: "tool" as const,
+            itemType: "command_execution" as const,
+            toolLifecycleStatus: "completed" as const,
+          },
+        },
+      ],
+      latestTurn: {
+        turnId,
+        state: "completed",
+        startedAt: "2026-01-01T00:00:00Z",
+        completedAt: "2026-01-01T00:00:10Z",
+      },
+      isWorking: false,
+      activeTurnStartedAt: null,
+      turnDiffSummaryByAssistantMessageId: new Map(),
+      revertTurnCountByUserMessageId: new Map(),
+    });
+
+    // A turn ending in tool calls moves its footer to a detached meta row —
+    // the runtime has to travel with it or it disappears from the UI.
+    expect(rows.at(-1)).toMatchObject({
+      kind: "assistant-meta",
+      turnRuntimeMs: 10_000,
+      turnRuntimeLabel: "Worked for 10s",
+    });
+  });
+
+  it("reports the stopped runtime for an interrupted turn's last message", () => {
+    const rows = deriveMessagesTimelineRows({
+      timelineEntries: [
+        {
+          id: "assistant-final-entry",
+          kind: "message",
+          createdAt: "2026-01-01T00:00:20Z",
+          message: {
+            id: "assistant-final" as never,
+            role: "assistant",
+            text: "Partial answer.",
+            turnId: "turn-1" as never,
+            createdAt: "2026-01-01T00:00:20Z",
+            updatedAt: "2026-01-01T00:00:22Z",
+            streaming: false,
+          },
+        },
+      ],
+      latestTurn: {
+        turnId: "turn-1" as never,
+        state: "interrupted",
+        startedAt: "2026-01-01T00:00:00Z",
+        completedAt: "2026-01-01T00:00:47Z",
+      },
+      isWorking: false,
+      activeTurnStartedAt: null,
+      turnDiffSummaryByAssistantMessageId: new Map(),
+      revertTurnCountByUserMessageId: new Map(),
+    });
+
+    const terminalRow = rows.find(
+      (row): row is Extract<(typeof rows)[number], { kind: "message" }> => row.kind === "message",
+    );
+
+    expect(terminalRow?.turnRuntimeMs).toBe(47_000);
+    expect(terminalRow?.turnRuntimeLabel).toBe("You stopped after 47s");
+  });
+
+  it("omits the turn runtime while the turn is still in progress", () => {
+    const rows = deriveMessagesTimelineRows({
+      timelineEntries: [
+        {
+          id: "assistant-final-entry",
+          kind: "message",
+          createdAt: "2026-01-01T00:00:20Z",
+          message: {
+            id: "assistant-final" as never,
+            role: "assistant",
+            text: "Working on it.",
+            turnId: "turn-1" as never,
+            createdAt: "2026-01-01T00:00:20Z",
+            updatedAt: "2026-01-01T00:00:22Z",
+            streaming: false,
+          },
+        },
+      ],
+      latestTurn: {
+        turnId: "turn-1" as never,
+        state: "running",
+        startedAt: "2026-01-01T00:00:00Z",
+        completedAt: null,
+      },
+      runningTurnId: "turn-1" as never,
+      isWorking: true,
+      activeTurnStartedAt: "2026-01-01T00:00:00Z",
+      turnDiffSummaryByAssistantMessageId: new Map(),
+      revertTurnCountByUserMessageId: new Map(),
+    });
+
+    const terminalRow = rows.find(
+      (row): row is Extract<(typeof rows)[number], { kind: "message" }> => row.kind === "message",
+    );
+
+    expect(terminalRow?.showAssistantMeta).toBe(false);
+    expect(terminalRow?.turnRuntimeMs).toBeNull();
+  });
+
   it("withholds assistant metadata while the active turn is still in progress", () => {
     const rows = deriveMessagesTimelineRows({
       timelineEntries: [
