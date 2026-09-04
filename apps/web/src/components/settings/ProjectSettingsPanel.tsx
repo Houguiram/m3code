@@ -100,7 +100,6 @@ import {
   MenuTrigger,
 } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
-import { Switch } from "../ui/switch";
 import { SidebarInset } from "../ui/sidebar";
 import { Switch } from "../ui/switch";
 import { stackedThreadToast, toastManager } from "../ui/toast";
