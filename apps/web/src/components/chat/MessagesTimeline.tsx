@@ -52,6 +52,7 @@ import {
 import { FileDiff } from "@pierre/diffs/react";
 import {
   deriveTimelineEntries,
+  formatDuration,
   workEntryDisplayIndicatesToolFailure,
   workEntrySignalsSevereFailure,
   workLogEntryIsToolLike,
@@ -92,6 +93,7 @@ import {
   SearchIcon,
   SquarePenIcon,
   TerminalIcon,
+  TimerIcon,
   Undo2Icon,
   WrenchIcon,
   XIcon,
@@ -1493,6 +1495,8 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
           <AssistantMessageMeta
             className="mt-1.5"
             message={row.message}
+            turnRuntimeMs={row.turnRuntimeMs}
+            turnRuntimeLabel={row.turnRuntimeLabel}
             showCopyButton={row.showAssistantCopyButton}
             copyStreaming={row.assistantCopyStreaming}
           />
@@ -1512,6 +1516,8 @@ function AssistantMetaTimelineRow({
       <AssistantMessageMeta
         className="mt-0.5"
         message={row.message}
+        turnRuntimeMs={row.turnRuntimeMs}
+        turnRuntimeLabel={row.turnRuntimeLabel}
         showCopyButton={row.showAssistantCopyButton}
         copyStreaming={row.assistantCopyStreaming}
         alwaysVisible
@@ -1523,12 +1529,16 @@ function AssistantMetaTimelineRow({
 function AssistantMessageMeta({
   className,
   message,
+  turnRuntimeMs,
+  turnRuntimeLabel,
   showCopyButton,
   copyStreaming,
   alwaysVisible = false,
 }: {
   className?: string;
   message: ChatMessage;
+  turnRuntimeMs: number | null;
+  turnRuntimeLabel: string | null;
   showCopyButton: boolean;
   copyStreaming: boolean;
   alwaysVisible?: boolean;
@@ -1551,14 +1561,29 @@ function AssistantMessageMeta({
         streaming={copyStreaming}
       />
       {!message.streaming && (
-        <Tooltip>
-          <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
-            {formatDayAwareTimestamp(message.updatedAt, ctx.timestampFormat)}
-          </TooltipTrigger>
-          <TooltipPopup>
-            {formatChatTimestampTooltip(message.updatedAt, ctx.timestampFormat)}
-          </TooltipPopup>
-        </Tooltip>
+        <>
+          <Tooltip>
+            <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
+              {formatDayAwareTimestamp(message.updatedAt, ctx.timestampFormat)}
+            </TooltipTrigger>
+            <TooltipPopup>
+              {formatChatTimestampTooltip(message.updatedAt, ctx.timestampFormat)}
+            </TooltipPopup>
+          </Tooltip>
+          {turnRuntimeMs === null ? null : (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <p className="flex items-center gap-1 text-muted-foreground text-xs tabular-nums" />
+                }
+              >
+                <TimerIcon className="size-3 shrink-0" aria-hidden />
+                {formatDuration(turnRuntimeMs)}
+              </TooltipTrigger>
+              <TooltipPopup>{turnRuntimeLabel}</TooltipPopup>
+            </Tooltip>
+          )}
+        </>
       )}
     </div>
   );

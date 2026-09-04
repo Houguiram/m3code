@@ -332,6 +332,9 @@ export type MessagesTimelineRow =
       message: ChatMessage;
       durationStart: string;
       showAssistantMeta: boolean;
+      /** Runtime of the turn this message ended, shown beside its timestamp. */
+      turnRuntimeMs: number | null;
+      turnRuntimeLabel: string | null;
       showAssistantCopyButton: boolean;
       assistantCopyStreaming: boolean;
       assistantTurnDiffSummary?: TurnDiffSummary | undefined;
@@ -342,6 +345,9 @@ export type MessagesTimelineRow =
       id: string;
       createdAt: string;
       message: ChatMessage;
+      /** Runtime of the turn this message ended, shown beside its timestamp. */
+      turnRuntimeMs: number | null;
+      turnRuntimeLabel: string | null;
       showAssistantCopyButton: boolean;
       assistantCopyStreaming: boolean;
     }
@@ -538,29 +544,24 @@ function workEntryIsActiveTurnActivity(entry: WorkLogEntry): boolean {
   );
 }
 
-/**
- * Settled turns fold activity before their terminal assistant message behind
- * a "Worked for ..." row. Work that lands after that message stays visible so
- * failed or interrupted turns do not hide their trailing tool-call summary.
- */
-function deriveTurnFolds(input: {
+interface TurnGroup {
+  entries: Array<TimelineEntry>;
+  terminalEntry: Extract<TimelineEntry, { kind: "message" }> | null;
+  hasStreamingMessage: boolean;
+  /**
+   * The user message that kicked the turn off. Entry timestamps alone
+   * undercount the duration (the first entry appears only once the
+   * provider starts producing output), and a turn cut short by a steer may
+   * hold a single instantaneous commentary message.
+   */
+  startBoundary: string | null;
+}
+
+/** Buckets timeline entries by the turn that produced them, in feed order. */
+function deriveTurnGroups(input: {
   timelineEntries: ReadonlyArray<TimelineEntry>;
   terminalAssistantMessageIds: ReadonlySet<string>;
-  latestTurn: TimelineLatestTurn | null;
-  unfoldedTurnIds: ReadonlySet<TurnId>;
-}): ReadonlyMap<string, TurnFold> {
-  interface TurnGroup {
-    entries: Array<TimelineEntry>;
-    terminalEntry: Extract<TimelineEntry, { kind: "message" }> | null;
-    hasStreamingMessage: boolean;
-    /**
-     * The user message that kicked the turn off. Entry timestamps alone
-     * undercount the duration (the first entry appears only once the
-     * provider starts producing output), and a turn cut short by a steer may
-     * hold a single instantaneous commentary message.
-     */
-    startBoundary: string | null;
-  }
+}): ReadonlyMap<TurnId, TurnGroup> {
   const groupsByTurnId = new Map<TurnId, TurnGroup>();
 
   let pendingUserBoundary: string | null = null;
@@ -603,8 +604,74 @@ function deriveTurnFolds(input: {
     }
   }
 
-  const foldsByAnchorEntryId = new Map<string, TurnFold>();
+  return groupsByTurnId;
+}
+
+interface TurnRuntime {
+  /** Wall-clock time the turn spent working, or null when it is unknowable. */
+  elapsedMs: number | null;
+  /** Sentence form of the runtime, e.g. "Worked for 2m 30s". */
+  label: string;
+}
+
+/**
+ * How long each turn ran. The fold row and the terminal message's metadata
+ * both read from here, so one turn never reports two different durations.
+ */
+function deriveTurnRuntimes(
+  groupsByTurnId: ReadonlyMap<TurnId, TurnGroup>,
+  latestTurn: TimelineLatestTurn | null,
+): ReadonlyMap<TurnId, TurnRuntime> {
+  const runtimeByTurnId = new Map<TurnId, TurnRuntime>();
+
   for (const [turnId, group] of groupsByTurnId) {
+    const firstEntry = group.entries[0];
+    const lastEntry = group.entries.at(-1);
+    if (!firstEntry || !lastEntry) {
+      continue;
+    }
+
+    const isLatestTurn = latestTurn?.turnId === turnId;
+    // A turn cut short by a steer leaves trailing work entries behind its
+    // terminal message — take whichever ended last.
+    const lastEntryEnd =
+      lastEntry.kind === "message" ? lastEntry.message.updatedAt : lastEntry.createdAt;
+    const elapsedMs =
+      isLatestTurn && latestTurn.startedAt && latestTurn.completedAt
+        ? computeElapsedMs(latestTurn.startedAt, latestTurn.completedAt)
+        : computeElapsedMs(
+            group.startBoundary ?? firstEntry.createdAt,
+            maxIsoTimestamp(group.terminalEntry?.message.updatedAt ?? null, lastEntryEnd) ??
+              lastEntryEnd,
+          );
+    const duration = elapsedMs !== null ? formatDuration(elapsedMs) : null;
+    const label =
+      isLatestTurn && latestTurn.state === "interrupted"
+        ? duration
+          ? `You stopped after ${duration}`
+          : "You stopped this response"
+        : duration
+          ? `Worked for ${duration}`
+          : "Worked";
+
+    runtimeByTurnId.set(turnId, { elapsedMs, label });
+  }
+
+  return runtimeByTurnId;
+}
+
+/**
+ * Settled turns fold activity before their terminal assistant message behind
+ * a "Worked for ..." row. Work that lands after that message stays visible so
+ * failed or interrupted turns do not hide their trailing tool-call summary.
+ */
+function deriveTurnFolds(input: {
+  groupsByTurnId: ReadonlyMap<TurnId, TurnGroup>;
+  runtimeByTurnId: ReadonlyMap<TurnId, TurnRuntime>;
+  unfoldedTurnIds: ReadonlySet<TurnId>;
+}): ReadonlyMap<string, TurnFold> {
+  const foldsByAnchorEntryId = new Map<string, TurnFold>();
+  for (const [turnId, group] of input.groupsByTurnId) {
     if (input.unfoldedTurnIds.has(turnId)) {
       continue;
     }
@@ -646,44 +713,17 @@ function deriveTurnFolds(input: {
       continue;
     }
 
-    const firstEntry = group.entries[0];
     const firstHiddenEntry = group.entries.find((entry) => hiddenEntryIds.has(entry.id));
-    const lastEntry = group.entries.at(-1);
-    if (!firstEntry || !firstHiddenEntry || !lastEntry) {
+    if (!firstHiddenEntry) {
       continue;
     }
-
-    const isLatestInterruptedTurn =
-      input.latestTurn?.turnId === turnId && input.latestTurn.state === "interrupted";
-    // A turn cut short by a steer leaves trailing work entries behind its
-    // terminal message — take whichever ended last.
-    const lastEntryEnd =
-      lastEntry.kind === "message" ? lastEntry.message.updatedAt : lastEntry.createdAt;
-    const elapsedMs =
-      input.latestTurn?.turnId === turnId &&
-      input.latestTurn.startedAt &&
-      input.latestTurn.completedAt
-        ? computeElapsedMs(input.latestTurn.startedAt, input.latestTurn.completedAt)
-        : computeElapsedMs(
-            group.startBoundary ?? firstEntry.createdAt,
-            maxIsoTimestamp(group.terminalEntry?.message.updatedAt ?? null, lastEntryEnd) ??
-              lastEntryEnd,
-          );
-    const duration = elapsedMs !== null ? formatDuration(elapsedMs) : null;
-    const label = isLatestInterruptedTurn
-      ? duration
-        ? `You stopped after ${duration}`
-        : "You stopped this response"
-      : duration
-        ? `Worked for ${duration}`
-        : "Worked";
 
     foldsByAnchorEntryId.set(firstHiddenEntry.id, {
       turnId,
       anchorEntryId: firstHiddenEntry.id,
       createdAt: firstHiddenEntry.createdAt,
       hiddenEntryIds,
-      label,
+      label: input.runtimeByTurnId.get(turnId)?.label ?? "Worked",
     });
   }
   return foldsByAnchorEntryId;
@@ -752,6 +792,8 @@ function attachTrailingToolGroupsToAssistant(
       id: `assistant-meta:${row.message.id}`,
       createdAt: rows[lastTrailingWorkIndex]?.createdAt ?? row.message.updatedAt,
       message: row.message,
+      turnRuntimeMs: row.turnRuntimeMs,
+      turnRuntimeLabel: row.turnRuntimeLabel,
       showAssistantCopyButton: row.showAssistantCopyButton,
       assistantCopyStreaming: row.assistantCopyStreaming,
     });
@@ -797,10 +839,14 @@ export function deriveMessagesTimelineRows(input: {
     unsettledTurnId,
     isWorking: input.isWorking,
   });
-  const foldsByAnchorEntryId = deriveTurnFolds({
+  const groupsByTurnId = deriveTurnGroups({
     timelineEntries: input.timelineEntries,
     terminalAssistantMessageIds,
-    latestTurn: input.latestTurn ?? null,
+  });
+  const runtimeByTurnId = deriveTurnRuntimes(groupsByTurnId, input.latestTurn ?? null);
+  const foldsByAnchorEntryId = deriveTurnFolds({
+    groupsByTurnId,
+    runtimeByTurnId,
     unfoldedTurnIds: activeVisualResponseTurnIds,
   });
   const collapsedEntryIds = new Set<string>();
@@ -1119,6 +1165,11 @@ export function deriveMessagesTimelineRows(input: {
       terminalAssistantMessageIds.has(timelineEntry.message.id) &&
       !assistantResponseStillInProgress;
 
+    const turnRuntime =
+      showAssistantMeta && timelineEntry.message.turnId
+        ? runtimeByTurnId.get(timelineEntry.message.turnId)
+        : undefined;
+
     nextRows.push({
       kind: "message",
       id: timelineEntry.id,
@@ -1126,6 +1177,8 @@ export function deriveMessagesTimelineRows(input: {
       message: timelineEntry.message,
       durationStart,
       showAssistantMeta,
+      turnRuntimeMs: turnRuntime?.elapsedMs ?? null,
+      turnRuntimeLabel: turnRuntime?.label ?? null,
       showAssistantCopyButton: showAssistantMeta,
       assistantCopyStreaming: timelineEntry.message.streaming || assistantResponseStillInProgress,
       assistantTurnDiffSummary:
@@ -1187,6 +1240,8 @@ function isRowUnchanged(a: MessagesTimelineRow, b: MessagesTimelineRow): boolean
       return (
         a.createdAt === bm.createdAt &&
         a.message === bm.message &&
+        a.turnRuntimeMs === bm.turnRuntimeMs &&
+        a.turnRuntimeLabel === bm.turnRuntimeLabel &&
         a.showAssistantCopyButton === bm.showAssistantCopyButton &&
         a.assistantCopyStreaming === bm.assistantCopyStreaming
       );
@@ -1248,6 +1303,8 @@ function isRowUnchanged(a: MessagesTimelineRow, b: MessagesTimelineRow): boolean
         a.message === bm.message &&
         a.durationStart === bm.durationStart &&
         a.showAssistantMeta === bm.showAssistantMeta &&
+        a.turnRuntimeMs === bm.turnRuntimeMs &&
+        a.turnRuntimeLabel === bm.turnRuntimeLabel &&
         a.showAssistantCopyButton === bm.showAssistantCopyButton &&
         a.assistantCopyStreaming === bm.assistantCopyStreaming &&
         a.assistantTurnDiffSummary === bm.assistantTurnDiffSummary &&
