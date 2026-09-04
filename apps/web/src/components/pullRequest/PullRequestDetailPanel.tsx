@@ -881,10 +881,11 @@ export function PullRequestDetailPanel({
     action: PullRequestAction,
     method?: PullRequestMergeMethod,
     updateMethod?: PullRequestUpdateMethod,
+    bypassGraphiteMergeQueue = false,
   ) => {
     if (pendingAction !== null) return false;
     setPendingAction(action);
-    return finishAction(action, method, updateMethod);
+    return finishAction(action, method, updateMethod, bypassGraphiteMergeQueue);
   };
 
   const performCommentAction = async (body: string, action: "close" | "reopen") => {

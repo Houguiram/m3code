@@ -32,6 +32,7 @@ import {
   ChevronDownIcon,
   CloudDownloadIcon,
   CloudUploadIcon,
+  ExternalLinkIcon,
   GitBranchPlusIcon,
   GitCommitIcon,
   InfoIcon,
@@ -98,7 +99,7 @@ import { resolvePathLinkTarget } from "~/terminal-links";
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { getSourceControlPresentation } from "~/sourceControlPresentation";
 import { useOpenLink } from "~/browser/useOpenLink";
-import { openPullRequestLink, useOpenPrLink } from "~/lib/openPullRequestLink";
+import { useOpenPrLink } from "~/lib/openPullRequestLink";
 import { graphitePullRequestUrl } from "@t3tools/shared/sourceControl";
 
 interface GitActionsControlProps {
@@ -1268,16 +1269,7 @@ export default function GitActionsControl({
     : null;
   const openPrInGraphite = useCallback(() => {
     if (graphitePrUrl === null) return;
-    const api = readLocalApi();
-    if (!api) {
-      toastManager.add({
-        type: "error",
-        title: "Link opening is unavailable.",
-        data: threadToastData,
-      });
-      return;
-    }
-    void openPullRequestLink(api.shell, graphitePrUrl).catch((err: unknown) => {
+    void openLink(graphitePrUrl).catch((err: unknown) => {
       console.error(err);
       toastManager.add(
         stackedThreadToast({
@@ -1288,7 +1280,7 @@ export default function GitActionsControl({
         }),
       );
     });
-  }, [graphitePrUrl, threadToastData]);
+  }, [graphitePrUrl, openLink, threadToastData]);
 
   runGitActionWithToast = useEffectEvent(
     async ({
