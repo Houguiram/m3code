@@ -361,7 +361,7 @@ export const discoverOpenCodeSkills = Effect.fn("discoverOpenCodeSkills")(functi
   cwd: string,
 ) {
   const { inventory } = yield* loadOpenCodeInventoryForCwd(openCodeSettings, cwd);
-  return flattenOpenCodeSkills(inventory);
+  return openCodeSkillsToServerProviderSkills(inventory.skills);
 });
 
 export const makePendingOpenCodeProvider = (

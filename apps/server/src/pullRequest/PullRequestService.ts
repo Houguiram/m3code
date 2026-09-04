@@ -1530,7 +1530,7 @@ export const make = Effect.gen(function* () {
                       number: input.number,
                       label: mergeQueueLabel,
                       present: !queued,
-                    });
+                    }).pipe(Effect.as(project.repository));
                   }),
                   Effect.mapError(toPullRequestError("runAction")),
                 );
