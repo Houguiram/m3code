@@ -94,6 +94,21 @@ describe("serializeRenderedMarkdownFragment", () => {
     expect(serializeRenderedMarkdownFragment(asNode(container))).toBe("first line\nsecond line");
   });
 
+  it("copies a mermaid diagram from its source fence, not the rendered SVG", () => {
+    const diagram = new FakeElement("DIV", ["chat-markdown-mermaid"]).append(
+      new FakeElement("svg").append(new FakeText("A --> B")),
+    );
+    const block = new FakeElement("DIV", ["chat-markdown-codeblock"], {
+      "data-language": "mermaid",
+      "data-markdown-copy": "```mermaid\nflowchart TD\n  A --> B\n```\n\n",
+    }).append(diagram);
+    const container = new FakeElement("DIV").append(block);
+
+    expect(serializeRenderedMarkdownFragment(asNode(container))).toBe(
+      "```mermaid\nflowchart TD\n  A --> B\n```",
+    );
+  });
+
   it("uses a rendered card's explicit Markdown copy representation", () => {
     const card = new FakeElement("DIV", [], {
       "data-markdown-copy": "Hello World (Document template)\n\n",

@@ -19,6 +19,10 @@
       "types": "./src/markdownImages.ts",
       "default": "./src/markdownImages.ts"
     },
+    "./mermaid-language": {
+      "types": "./src/mermaidLanguage.ts",
+      "default": "./src/mermaidLanguage.ts"
+    },
     "./codex-file-citations": {
       "types": "./src/codexFileCitations.ts",
       "default": "./src/codexFileCitations.ts"

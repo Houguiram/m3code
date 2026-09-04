@@ -175,6 +175,7 @@ const ANDROID_ICON_BY_MATERIAL_NAME: Record<string, Icon> = {
   chat_bubble: IconMessage,
   check: IconCheck,
   close: IconX,
+  code: IconCode,
   construction: IconHammer,
   content_copy: IconCopy,
   edit: IconEdit,
