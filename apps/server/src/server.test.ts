@@ -120,7 +120,6 @@ import * as ProviderRegistry from "./provider/Services/ProviderRegistry.ts";
 import * as ProviderInstanceRegistry from "./provider/Services/ProviderInstanceRegistry.ts";
 import * as ProviderService from "./provider/Services/ProviderService.ts";
 import { ProviderAuthService } from "./provider/Services/ProviderAuthService.ts";
-import { ProviderInstanceRegistry } from "./provider/Services/ProviderInstanceRegistry.ts";
 import {
   AntigravityInstallation,
   AntigravityInstallationError,
@@ -498,7 +497,6 @@ const buildAppUnderTest = (options?: {
     >;
     providerService?: Partial<ProviderService.ProviderService["Service"]>;
     providerAuth?: Partial<ProviderAuthService["Service"]>;
-    providerInstanceRegistry?: Partial<ProviderInstanceRegistry["Service"]>;
     antigravityInstallation?: Partial<AntigravityInstallation["Service"]>;
     serverSettings?: Partial<ServerSettings.ServerSettingsService["Service"]>;
     externalLauncher?: Partial<ExternalLauncher.ExternalLauncher["Service"]>;
@@ -784,11 +782,6 @@ const buildAppUnderTest = (options?: {
           }),
           Layer.mock(ProviderAuthService)({
             ...options?.layers?.providerAuth,
-          }),
-          Layer.mock(ProviderInstanceRegistry)({
-            getInstance: () => Effect.succeed(undefined),
-            listInstances: Effect.succeed([]),
-            ...options?.layers?.providerInstanceRegistry,
           }),
           Layer.mock(AntigravityInstallation)({
             managedDirectory: "unused-test-antigravity-runtime",

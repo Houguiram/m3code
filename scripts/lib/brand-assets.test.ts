@@ -93,8 +93,8 @@ describe("brand-assets", () => {
       "assets/nightly/app-icon.icon",
       "assets/prod/app-icon.icon",
     ]);
-    expect(BRAND_ASSET_PATHS.developmentDesktopIconPng).toMatch(/^assets\/dev\/blueprint-/);
-    expect(BRAND_ASSET_PATHS.nightlyMacIconPng).toMatch(/^assets\/nightly\/nightly-/);
-    expect(BRAND_ASSET_PATHS.productionMacIconPng).toMatch(/^assets\/prod\/black-/);
+    expect(BRAND_ASSET_PATHS.developmentDesktopIconPng).toBe("assets/m3/m3-macos-1024.png");
+    expect(BRAND_ASSET_PATHS.nightlyMacIconPng).toBe("assets/m3/m3-macos-1024.png");
+    expect(BRAND_ASSET_PATHS.productionMacIconPng).toBe("assets/m3/m3-macos-1024.png");
   });
 });

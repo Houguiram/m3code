@@ -71,6 +71,7 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
       expect(calls).toEqual([
         ["-C", "/repo/packages/web", "rev-parse", "--show-toplevel"],
         ["-C", "/repo", "remote", "-v"],
+        ["-C", "/repo", "config", "--get-regexp", String.raw`^remote\..*\.gh-resolved$`],
       ]);
     }).pipe(Effect.provide(resolverLayer));
   });
@@ -115,6 +116,7 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
         ["-C", "/repo/packages/web", "rev-parse", "--show-toplevel"],
         ["-C", "/repo/packages/web", "rev-parse", "--show-toplevel"],
         ["-C", "/repo", "remote", "-v"],
+        ["-C", "/repo", "config", "--get-regexp", String.raw`^remote\..*\.gh-resolved$`],
       ]);
     }).pipe(Effect.provide(resolverLayer));
   });
