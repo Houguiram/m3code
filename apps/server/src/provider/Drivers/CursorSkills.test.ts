@@ -62,7 +62,7 @@ it.layer(NodeServices.layer)("discoverCursorSkills", (it) => {
     }),
   );
 
-  it.effect("discovers nested skills and rejects invalid entries", () =>
+  it.effect("discovers nested skills by folder name without requiring a description", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -82,9 +82,13 @@ it.layer(NodeServices.layer)("discoverCursorSkills", (it) => {
 
       assert.deepEqual(
         skills.map((entry) => entry.name),
-        ["deploy"],
+        ["deploy", "no-description", "wrong-folder"],
       );
-      assert.equal(skills[0]?.path, path.join(skillsDirectory, "shipping", "deploy", "SKILL.md"));
+      assert.ok(
+        skills
+          .find((entry) => entry.name === "deploy")
+          ?.path.endsWith(`${path.sep}shipping${path.sep}deploy${path.sep}SKILL.md`),
+      );
     }),
   );
 });

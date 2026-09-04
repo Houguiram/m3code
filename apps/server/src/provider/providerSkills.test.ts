@@ -115,6 +115,7 @@ function makeLayer(input: {
       getSnapshot: Effect.succeed(snapshot),
       refresh: Effect.succeed(snapshot),
       streamChanges: Stream.empty,
+      applyUsageLimits: () => Effect.void,
     },
     listSkillsForCwd: input.loadSkills,
     adapter: {} as ProviderInstance["adapter"],

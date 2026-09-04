@@ -104,7 +104,7 @@ describe("ElectronProtocol", () => {
             backendOrigin: new URL("http://127.0.0.1:3773/"),
             clerkFrontendApiHostname: undefined,
           });
-          return yield* Effect.promise(() => handler!(new Request("t3code://other/")));
+          return yield* Effect.promise(() => handler!(new Request("m3code://other/")));
         }),
       );
 
@@ -225,7 +225,7 @@ describe("ElectronProtocol", () => {
       "http:",
       "https:",
     ]);
-    assert.deepEqual(directives["media-src"], ["'self'", "m3code:", "blob:"]);
+    assert.deepEqual(directives["media-src"], ["'self'", "m3code:", "blob:", "http:", "https:"]);
     assert.deepEqual(directives["font-src"], ["'self'", "m3code:", "data:"]);
   });
 });

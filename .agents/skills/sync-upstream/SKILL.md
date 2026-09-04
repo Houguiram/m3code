@@ -23,8 +23,8 @@ starting. Follow the repository `AGENTS.md` throughout.
    - `origin` is `Houguiram/m3code`.
    - `upstream` is `pingdotgg/t3code`.
    - Graphite's trunk is `main`.
-   Stop without changing remote configuration if any identity differs or a required remote is
-   missing.
+     Stop without changing remote configuration if any identity differs or a required remote is
+     missing.
 2. Require a clean worktree. Do not stash, commit, or absorb unrelated work into the sync.
 3. Fetch and prune `origin` and `upstream` explicitly. Do not use `git pull upstream main`.
 4. Inspect open PRs against the fork's `main`. If an upstream-sync PR already exists, report its URL
