@@ -19,6 +19,12 @@ import { formatAttachmentSize } from "@t3tools/client-runtime/state/attachments"
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { classifyMarkdownImageSource } from "@t3tools/client-runtime/markdown-images";
 import {
+  isMermaidFenceLanguage,
+  resolveMermaidBlockView,
+  type MermaidBlockView,
+  type MermaidRenderStatus,
+} from "@t3tools/client-runtime/mermaid-language";
+import {
   renderCodexFileCitationsAsMarkdown,
   splitCodexArtifactTemplateMarkdown,
 } from "@t3tools/client-runtime/codex-markdown-directives";
@@ -89,6 +95,7 @@ import {
 
 import { AppText as Text } from "../../components/AppText";
 import { CopyTextButton } from "../../components/CopyTextButton";
+import { MermaidDiagram } from "./MermaidDiagram";
 import {
   parseReviewCommentMessageSegments,
   type ReviewInlineComment,
@@ -701,9 +708,19 @@ function MarkdownCodeBlock(props: {
 }) {
   const content = props.content.replace(/\n$/, "");
   const languageLabel = props.language?.trim() || "text";
+  const mermaid = isMermaidFenceLanguage(languageLabel);
+  const [preferredMermaidView, setPreferredMermaidView] = useState<MermaidBlockView>("diagram");
+  const [mermaidStatus, setMermaidStatus] = useState<MermaidRenderStatus>("idle");
+  const mermaidView = mermaid
+    ? resolveMermaidBlockView({
+        preferredView: preferredMermaidView,
+        status: mermaidStatus,
+        isStreaming: false,
+      })
+    : "code";
   const highlighted = useMarkdownCodeHighlight({
     code: content,
-    enabled: props.highlightCode && Boolean(props.language?.trim()),
+    enabled: mermaidView === "code" && props.highlightCode && Boolean(props.language?.trim()),
     language: props.language,
     theme: props.theme,
   });
@@ -729,75 +746,123 @@ function MarkdownCodeBlock(props: {
         >
           {languageLabel}
         </NativeText>
-        <CopyTextButton
-          accessibilityLabel="Copy code"
-          text={content}
-          tintColor={props.copyTintColor}
-          buttonSize={32}
-          iconSize={16}
-        />
-      </View>
-      <ScrollView
-        horizontal
-        bounces={false}
-        nestedScrollEnabled={Platform.OS === "android"}
-        showsHorizontalScrollIndicator={false}
-        contentContainerClassName="px-3.5 py-3"
-      >
-        <NativeText
-          selectable
-          className="font-mono"
-          style={{
-            color: props.textColor,
-            fontSize: props.fontSize,
-            lineHeight: props.lineHeight,
-            ...(Platform.OS === "android" ? { includeFontPadding: false } : null),
-          }}
-        >
-          {highlighted
-            ? highlighted.map((line, lineIndex) => {
-                const lineStartOffset = tokenOffset;
-                const lineText = line.map((token) => token.content).join("");
-                const renderedLine = (
-                  <NativeText key={`line:${lineStartOffset}:${lineText}`}>
-                    {line.map((token) => {
-                      const startOffset = tokenOffset;
-                      tokenOffset += token.content.length;
-                      const fontStyle =
-                        token.fontStyle !== null && (token.fontStyle & 1) === 1
-                          ? ("italic" as const)
-                          : ("normal" as const);
-                      const fontWeight =
-                        token.fontStyle !== null && (token.fontStyle & 2) === 2
-                          ? ("700" as const)
-                          : ("400" as const);
-
-                      return (
-                        <NativeText
-                          key={`${startOffset}:${token.content}:${token.color ?? ""}:${
-                            token.fontStyle ?? ""
-                          }`}
-                          style={{
-                            color: token.color ?? props.textColor,
-                            fontStyle,
-                            fontWeight,
-                          }}
-                        >
-                          {token.content}
-                        </NativeText>
-                      );
-                    })}
-                    {lineIndex + 1 < highlighted.length ? "\n" : ""}
-                  </NativeText>
-                );
-                if (lineIndex + 1 < highlighted.length) {
-                  tokenOffset += 1;
+        <View className="flex-row items-center">
+          {mermaid ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={mermaidView === "diagram" ? "Show code" : "Show diagram"}
+              hitSlop={8}
+              onPress={() =>
+                setPreferredMermaidView(mermaidView === "diagram" ? "code" : "diagram")
+              }
+              style={{
+                width: 32,
+                height: 32,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <SymbolView
+                name={
+                  mermaidView === "diagram"
+                    ? {
+                        ios: "chevron.left.forwardslash.chevron.right",
+                        android: "code",
+                      }
+                    : {
+                        ios: "point.3.connected.trianglepath.dotted",
+                        android: "device_hub",
+                      }
                 }
-                return renderedLine;
-              })
-            : content}
-        </NativeText>
-      </ScrollView>
+                size={16}
+                tintColor={props.copyTintColor}
+                type="monochrome"
+              />
+            </Pressable>
+          ) : null}
+          <CopyTextButton
+            accessibilityLabel="Copy code"
+            text={content}
+            tintColor={props.copyTintColor}
+            buttonSize={32}
+            iconSize={16}
+          />
+        </View>
+      </View>
+      {mermaid ? (
+        <View style={{ display: mermaidView === "diagram" ? "flex" : "none" }}>
+          <MermaidDiagram
+            code={content}
+            errorColor={props.headerTextColor}
+            isStreaming={false}
+            theme={props.theme}
+            onStatusChange={setMermaidStatus}
+          />
+        </View>
+      ) : null}
+      {mermaidView === "code" ? (
+        <ScrollView
+          horizontal
+          bounces={false}
+          nestedScrollEnabled={Platform.OS === "android"}
+          showsHorizontalScrollIndicator={false}
+          contentContainerClassName="px-3.5 py-3"
+        >
+          <NativeText
+            selectable
+            className="font-mono"
+            style={{
+              color: props.textColor,
+              fontSize: props.fontSize,
+              lineHeight: props.lineHeight,
+              ...(Platform.OS === "android" ? { includeFontPadding: false } : null),
+            }}
+          >
+            {highlighted
+              ? highlighted.map((line, lineIndex) => {
+                  const lineStartOffset = tokenOffset;
+                  const lineText = line.map((token) => token.content).join("");
+                  const renderedLine = (
+                    <NativeText key={`line:${lineStartOffset}:${lineText}`}>
+                      {line.map((token) => {
+                        const startOffset = tokenOffset;
+                        tokenOffset += token.content.length;
+                        const fontStyle =
+                          token.fontStyle !== null && (token.fontStyle & 1) === 1
+                            ? ("italic" as const)
+                            : ("normal" as const);
+                        const fontWeight =
+                          token.fontStyle !== null && (token.fontStyle & 2) === 2
+                            ? ("700" as const)
+                            : ("400" as const);
+
+                        return (
+                          <NativeText
+                            key={`${startOffset}:${token.content}:${token.color ?? ""}:${
+                              token.fontStyle ?? ""
+                            }`}
+                            style={{
+                              color: token.color ?? props.textColor,
+                              fontStyle,
+                              fontWeight,
+                            }}
+                          >
+                            {token.content}
+                          </NativeText>
+                        );
+                      })}
+                      {lineIndex + 1 < highlighted.length ? "\n" : ""}
+                    </NativeText>
+                  );
+                  if (lineIndex + 1 < highlighted.length) {
+                    tokenOffset += 1;
+                  }
+                  return renderedLine;
+                })
+              : content}
+          </NativeText>
+        </ScrollView>
+      ) : null}
     </View>
   );
 }

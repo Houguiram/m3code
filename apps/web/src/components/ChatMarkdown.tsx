@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   CheckIcon,
   ChevronRightIcon,
+  Code2Icon,
   CopyIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
@@ -18,6 +19,7 @@ import {
   PresentationIcon,
   SparklesIcon,
   TriangleAlertIcon,
+  WorkflowIcon,
   WrapTextIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -41,6 +43,13 @@ import {
   classifyMarkdownImageSource,
   markdownImageSourceFragment,
 } from "@t3tools/client-runtime/markdown-images";
+import {
+  isMermaidFenceLanguage,
+  mermaidFenceMarkdown,
+  resolveMermaidBlockView,
+  type MermaidBlockView,
+  type MermaidRenderStatus,
+} from "@t3tools/client-runtime/mermaid-language";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
 import React, {
@@ -104,6 +113,7 @@ import { resolveDiffThemeName, type DiffThemeName } from "../lib/diffRendering";
 import { fnv1a32 } from "../lib/diffRendering";
 import { LRUCache } from "../lib/lruCache";
 import { getSyntaxHighlighterPromise } from "../lib/syntaxHighlighting";
+import { MermaidDiagram } from "./MermaidDiagram";
 import { RenderErrorBoundary } from "./RenderErrorBoundary";
 import { useTheme } from "../hooks/useTheme";
 import { getClientSettings } from "../hooks/useSettings";
@@ -806,17 +816,30 @@ function MarkdownCodeBlock({
   language,
   fenceTitle,
   theme,
+  isStreaming,
   children,
 }: {
   code: string;
   language: string;
   fenceTitle: string | null;
   theme: "light" | "dark";
+  isStreaming: boolean;
   children: ReactNode;
 }) {
+  const mermaid = isMermaidFenceLanguage(language);
   const [copied, setCopied] = useState(false);
   const [wrapped, setWrapped] = useState(readInitialWordWrapSetting);
+  const [preferredMermaidView, setPreferredMermaidView] = useState<MermaidBlockView>("diagram");
+  const [mermaidStatus, setMermaidStatus] = useState<MermaidRenderStatus>("idle");
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mermaidView = mermaid
+    ? resolveMermaidBlockView({
+        preferredView: preferredMermaidView,
+        status: mermaidStatus,
+        isStreaming,
+      })
+    : "code";
+  const mermaidViewLabel = mermaidView === "diagram" ? "Show code" : "Show diagram";
   const wrapLabel = wrapped ? "Disable line wrap" : "Wrap lines";
   const copyLabel = copied ? "Copied" : "Copy code";
 
@@ -862,6 +885,8 @@ function MarkdownCodeBlock({
     <div
       className="chat-markdown-codeblock my-[0.65rem] overflow-hidden rounded-[var(--radius)] border border-border/70 bg-secondary leading-snug dark:border-transparent dark:bg-input/32"
       data-language={language}
+      data-mermaid-view={mermaid ? mermaidView : undefined}
+      data-markdown-copy={mermaid ? mermaidFenceMarkdown(code) : undefined}
       data-wrap={wrapped ? "true" : "false"}
     >
       <div className="chat-markdown-codeblock-header flex items-center justify-between gap-2 pt-1.5 pr-1.5 pb-0 pl-3 select-none">
@@ -873,24 +898,52 @@ function MarkdownCodeBlock({
           />
         </span>
         <span className="flex items-center gap-0.5" role="toolbar" aria-label="Code block actions">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="chat-markdown-chrome-action"
-                  aria-pressed={wrapped}
-                  onClick={() => setWrapped((value) => !value)}
-                  aria-label={wrapLabel}
-                />
-              }
-            >
-              <WrapTextIcon className="size-3" />
-            </TooltipTrigger>
-            <TooltipPopup side="top">{wrapLabel}</TooltipPopup>
-          </Tooltip>
+          {mermaid ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="chat-markdown-chrome-action"
+                    aria-pressed={mermaidView === "diagram"}
+                    onClick={() =>
+                      setPreferredMermaidView(mermaidView === "diagram" ? "code" : "diagram")
+                    }
+                    aria-label={mermaidViewLabel}
+                  />
+                }
+              >
+                {mermaidView === "diagram" ? (
+                  <Code2Icon className="size-3" />
+                ) : (
+                  <WorkflowIcon className="size-3" />
+                )}
+              </TooltipTrigger>
+              <TooltipPopup side="top">{mermaidViewLabel}</TooltipPopup>
+            </Tooltip>
+          ) : null}
+          {mermaidView === "code" ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="chat-markdown-chrome-action"
+                    aria-pressed={wrapped}
+                    onClick={() => setWrapped((value) => !value)}
+                    aria-label={wrapLabel}
+                  />
+                }
+              >
+                <WrapTextIcon className="size-3" />
+              </TooltipTrigger>
+              <TooltipPopup side="top">{wrapLabel}</TooltipPopup>
+            </Tooltip>
+          ) : null}
           <Tooltip>
             <TooltipTrigger
               render={
@@ -910,7 +963,17 @@ function MarkdownCodeBlock({
           </Tooltip>
         </span>
       </div>
-      {children}
+      {mermaid ? (
+        <div hidden={mermaidView !== "diagram"}>
+          <MermaidDiagram
+            code={code}
+            theme={theme}
+            isStreaming={isStreaming}
+            onStatusChange={setMermaidStatus}
+          />
+        </div>
+      ) : null}
+      {mermaidView === "code" ? children : null}
     </div>
   );
 }
@@ -2399,6 +2462,7 @@ function ChatMarkdown({
             language={language}
             fenceTitle={fenceTitle}
             theme={resolvedTheme}
+            isStreaming={isStreaming}
           >
             <RenderErrorBoundary fallback={<pre {...props}>{children}</pre>}>
               <Suspense fallback={<pre {...props}>{children}</pre>}>
