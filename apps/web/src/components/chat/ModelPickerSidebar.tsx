@@ -9,24 +9,30 @@ import {
   shouldShowInstanceBadge,
   type ProviderInstanceEntry,
 } from "../../providerInstances";
+import { useQuotaSnapshot } from "../../state/quota";
+import { formatQuotaSummary } from "@t3tools/shared/quotaFormat";
 
 /**
  * Build the hover tooltip for an instance button. Mirrors the old
  * kind-based copy but uses the entry's configured `displayName` so custom
  * instances get their user-authored name (e.g. "Codex Personal — Unavailable.").
  */
-function describeUnavailableInstance(entry: ProviderInstanceEntry): string {
+function describeUnavailableInstance(
+  entry: ProviderInstanceEntry,
+  quotaLine: string | null,
+): string {
   const label = entry.displayName;
+  const withQuota = (text: string) => (quotaLine ? `${text}. ${quotaLine}` : text);
   if (!entry.enabled || entry.status === "disabled") {
-    return `${label} — Disabled in settings.`;
+    return withQuota(`${label} — Disabled in settings.`);
   }
   if (entry.status === "ready" && entry.isAvailable) {
-    return label;
+    return withQuota(label);
   }
   const kind =
     entry.status === "error" ? "Unavailable" : entry.status === "warning" ? "Limited" : "Not ready";
   const msg = entry.snapshot.message?.trim();
-  return msg ? `${label} — ${kind}. ${msg}` : `${label} — ${kind}.`;
+  return withQuota(msg ? `${label} — ${kind}. ${msg}` : `${label} — ${kind}.`);
 }
 
 const SELECTED_INDICATOR_CLASS =
@@ -67,6 +73,8 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
   const handleSelect = (instanceId: ProviderInstanceId | "favorites") => {
     props.onSelectInstance(instanceId);
   };
+  const { snapshot: quotaSnapshot } = useQuotaSnapshot();
+  const quotaNowMs = Date.now();
   const showFavorites = props.showFavorites ?? true;
   const [hoveredInstanceId, setHoveredInstanceId] = useState<ProviderInstanceId | null>(null);
   const sidebarContentRef = useRef<HTMLDivElement>(null);
@@ -146,13 +154,22 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
             const showNewBadge = props.newBadgeInstanceIds?.has(entry.instanceId) ?? false;
             const showInstanceBadge = shouldShowInstanceBadge(entry, props.instanceEntries);
 
+            const quotaBinding = quotaSnapshot?.instances.find(
+              (binding) => binding.instanceId === entry.instanceId,
+            );
+            const quotaLine =
+              quotaBinding?.account !== undefined && quotaBinding.account !== null
+                ? formatQuotaSummary(quotaBinding.account.windows, quotaNowMs)
+                : null;
             const tooltip = isUnavailable
-              ? describeUnavailableInstance(entry)
+              ? describeUnavailableInstance(entry, quotaLine)
               : isContextDisabled
                 ? (props.getDisabledInstanceTooltip?.(entry) ?? entry.displayName)
                 : showNewBadge
                   ? `${entry.displayName} — New`
-                  : entry.displayName;
+                  : quotaLine
+                    ? `${entry.displayName}. ${quotaLine}`
+                    : entry.displayName;
 
             const button = (
               <button
