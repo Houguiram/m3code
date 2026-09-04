@@ -5,6 +5,11 @@ environments. It reads the providers' local session history and shows API-equiva
 processed tokens, cache savings, provider shares, and model breakdowns. Subscription billing is
 separate from the raw token cost shown here.
 
+When the CodexBar CLI is installed on the environment, the page also shows remaining session and
+weekly limits for Claude, Codex, and Cursor. Those numbers come from your provider accounts, not
+from local token totals. Multiple accounts for the same provider are matched by email; if two
+CodexBar rows share an email, pin the right account on the provider in Settings.
+
 Grok Build totals come from persisted session updates. Interactive turns that never wrote a
 completed-turn record will not appear.
 

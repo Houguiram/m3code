@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import type { DailyTotals, MergedUsage } from "@t3tools/shared/usageMerge";
+import { formatQuotaWindow } from "@t3tools/shared/quotaFormat";
 import {
   enumerateDays,
   enumerateHourStarts,
@@ -19,6 +20,7 @@ import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { AppText as Text } from "../../components/AppText";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { useUsage, type EnvironmentUsageStatus } from "../../state/usage";
+import { useQuotaSnapshot } from "../../state/quota";
 import { SettingsSection } from "../settings/components/SettingsSection";
 import { UsageDailyChart } from "./UsageDailyChart";
 import type { UsageChartMetric } from "./usageChartData";
@@ -44,6 +46,7 @@ export function UsageRouteScreen() {
   const { days: windowDays, window } = windowSelection;
   const isPast24Hours = windowDays === 1;
   const { merged, environments, isPending, isPartial, refresh } = useUsage(window);
+  const { snapshot: quotaSnapshot, refresh: refreshQuota } = useQuotaSnapshot();
 
   const days = useMemo(
     () => enumerateDays(window.sinceDay, window.untilDay),
@@ -91,6 +94,7 @@ export function UsageRouteScreen() {
     } else {
       setWindowSelection({ days: windowDays, window: nextWindow });
     }
+    refreshQuota();
   };
 
   return (
@@ -116,6 +120,40 @@ export function UsageRouteScreen() {
         />
 
         <UsageCoverageNotice environments={environments} merged={merged} isPartial={isPartial} />
+
+        {quotaSnapshot !== null ? (
+          <SettingsSection title="Remaining this window">
+            {quotaSnapshot.available ? (
+              quotaSnapshot.instances.map((binding) => (
+                <View key={binding.instanceId} className="gap-1 py-2">
+                  <Text className="text-sm text-foreground">
+                    {binding.account?.label ?? binding.instanceId}
+                  </Text>
+                  {binding.account ? (
+                    binding.account.windows.map((window) => (
+                      <Text
+                        key={`${binding.instanceId}:${window.kind}`}
+                        className="text-xs text-foreground-muted"
+                      >
+                        {formatQuotaWindow(window, Date.now())}
+                      </Text>
+                    ))
+                  ) : (
+                    <Text className="text-xs text-foreground-muted">
+                      {binding.match === "ambiguous"
+                        ? "Multiple CodexBar accounts share this email."
+                        : "No CodexBar account linked."}
+                    </Text>
+                  )}
+                </View>
+              ))
+            ) : (
+              <Text className="py-2 text-sm text-foreground-muted">
+                {quotaSnapshot.message ?? "CodexBar remaining limits are unavailable."}
+              </Text>
+            )}
+          </SettingsSection>
+        ) : null}
 
         {isPending ? (
           <Text className="py-16 text-center text-base text-foreground-muted">

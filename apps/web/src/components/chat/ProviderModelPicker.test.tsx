@@ -1,6 +1,11 @@
 import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+vi.mock("../../state/quota", () => ({
+  useQuotaSnapshot: () => ({ snapshot: null, isPending: false, refresh: () => undefined }),
+  useInstanceQuota: () => null,
+}));
 
 import { deriveProviderInstanceEntries } from "../../providerInstances";
 import { ProviderModelPicker } from "./ProviderModelPicker";

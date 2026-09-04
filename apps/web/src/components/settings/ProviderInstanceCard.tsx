@@ -26,10 +26,13 @@ import {
 import { cn } from "../../lib/utils";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { normalizeProviderAccentColor } from "../../providerInstances";
+import { useQuotaSnapshot } from "../../state/quota";
+import { quotaAccountLabel, quotaProviderForDriver } from "@t3tools/shared/quotaMatch";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { DraftInput } from "../ui/draft-input";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { ScrollArea } from "../ui/scroll-area";
 import { Switch } from "../ui/switch";
@@ -453,6 +456,15 @@ export function ProviderInstanceCard({
   const displayName =
     instance.displayName?.trim() || driverOption?.label || String(instance.driver);
   const accentColor = normalizeProviderAccentColor(instance.accentColor);
+  const { snapshot: quotaSnapshot } = useQuotaSnapshot();
+  const quotaProvider = quotaProviderForDriver(instance.driver);
+  const quotaAccounts =
+    quotaProvider === null
+      ? []
+      : (quotaSnapshot?.accounts.filter((account) => account.provider === quotaProvider) ?? []);
+  const quotaBinding = quotaSnapshot?.instances.find(
+    (binding) => binding.instanceId === instanceId,
+  );
   const { copyToClipboard } = useCopyToClipboard<{ providerName: string }>({
     onCopy: ({ providerName }) => {
       toastManager.add({
@@ -502,6 +514,16 @@ export function ProviderInstanceCard({
 
   const updateEnabled = (value: boolean) => {
     onUpdate({ ...instance, enabled: value });
+  };
+
+  const updateCodexBarAccount = (value: string) => {
+    const trimmed = value.trim();
+    const { codexBarAccount: _omit, ...rest } = instance;
+    onUpdate(
+      trimmed.length > 0
+        ? ({ ...rest, codexBarAccount: trimmed } as ProviderInstanceConfig)
+        : (rest as ProviderInstanceConfig),
+    );
   };
 
   const updateAccentColor = (value: string) => {
@@ -871,6 +893,56 @@ export function ProviderInstanceCard({
                 </span>
               </label>
             </div>
+
+            {quotaProvider !== null ? (
+              <div>
+                <label
+                  htmlFor={`provider-instance-${instanceId}-codexbar-account`}
+                  className="block"
+                >
+                  <span className="text-xs font-medium text-foreground">CodexBar account</span>
+                  <Select
+                    value={instance.codexBarAccount ?? "auto"}
+                    onValueChange={(next) =>
+                      updateCodexBarAccount(next === "auto" || next === null ? "" : next)
+                    }
+                  >
+                    <SelectTrigger
+                      id={`provider-instance-${instanceId}-codexbar-account`}
+                      className="mt-1.5"
+                    >
+                      <SelectValue placeholder="Match automatically by email" />
+                    </SelectTrigger>
+                    <SelectPopup>
+                      <SelectItem value="auto">Match automatically by email</SelectItem>
+                      {quotaAccounts.map((account) => (
+                        <SelectItem key={account.key} value={account.key}>
+                          {quotaAccountLabel(account)}
+                        </SelectItem>
+                      ))}
+                      {instance.codexBarAccount &&
+                      !quotaAccounts.some((account) => account.key === instance.codexBarAccount) ? (
+                        <SelectItem value={instance.codexBarAccount}>
+                          {instance.codexBarAccount}
+                        </SelectItem>
+                      ) : null}
+                    </SelectPopup>
+                  </Select>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {quotaBinding?.match === "ambiguous"
+                      ? "Multiple CodexBar accounts share this email. Pick one."
+                      : quotaBinding?.match === "unmatched" && quotaSnapshot?.available
+                        ? "No automatic match. Pick the CodexBar account this instance should use."
+                        : quotaBinding?.account
+                          ? `Currently ${quotaAccountLabel(quotaBinding.account)}.`
+                          : quotaSnapshot?.available
+                            ? "Used to show remaining session and weekly limits."
+                            : (quotaSnapshot?.message ??
+                              "Install the CodexBar CLI to link remaining limits.")}
+                  </span>
+                </label>
+              </div>
+            ) : null}
 
             <div>
               <ProviderAccentColorPicker
