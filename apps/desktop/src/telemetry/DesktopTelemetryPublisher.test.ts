@@ -399,6 +399,8 @@ describe("DesktopTelemetryPublisher", () => {
       const powerLayer = Layer.succeed(
         ElectronPowerMonitor.ElectronPowerMonitor,
         ElectronPowerMonitor.ElectronPowerMonitor.of({
+          getKeepAwakeState: Effect.succeed(false),
+          setKeepAwake: Effect.succeed,
           isOnBatteryPower: Effect.succeed(false),
           getSystemIdleTime: Effect.succeed(0),
           getSystemIdleState: () => Effect.succeed("active"),
