@@ -251,6 +251,14 @@
       "types": "./src/desktopAppControl.ts",
       "import": "./src/desktopAppControl.ts"
     },
+    "./quotaMatch": {
+      "types": "./src/quotaMatch.ts",
+      "import": "./src/quotaMatch.ts"
+    },
+    "./quotaFormat": {
+      "types": "./src/quotaFormat.ts",
+      "import": "./src/quotaFormat.ts"
+    },
     "./claudeCompaction": {
       "types": "./src/claudeCompaction.ts",
       "import": "./src/claudeCompaction.ts"

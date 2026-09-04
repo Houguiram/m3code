@@ -19,6 +19,8 @@ import {
   getTriggerDisplayModelName,
 } from "./providerIconUtils";
 import { shouldShowInstanceBadge, type ProviderInstanceEntry } from "../../providerInstances";
+import { useInstanceQuota } from "../../state/quota";
+import { formatQuotaSummary } from "@t3tools/shared/quotaFormat";
 import {
   ComposerControl,
   ComposerControlChevron,
@@ -90,6 +92,11 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
     : triggerTitle;
   const showInstanceBadge =
     activeEntry !== null && shouldShowInstanceBadge(activeEntry, props.instanceEntries);
+  const quotaBinding = useInstanceQuota(activeInstanceId);
+  const quotaLine =
+    quotaBinding?.account !== undefined && quotaBinding.account !== null
+      ? formatQuotaSummary(quotaBinding.account.windows, Date.now())
+      : null;
 
   const setIsMenuOpen = (open: boolean) => {
     props.onOpenChange?.(open);
@@ -208,7 +215,9 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
             >
               {triggerTitle}
             </TooltipTrigger>
-            <TooltipPopup side="top">{triggerLabel}</TooltipPopup>
+            <TooltipPopup side="top">
+              {quotaLine ? `${triggerLabel}. ${quotaLine}` : triggerLabel}
+            </TooltipPopup>
           </Tooltip>
           {selectedModel?.isUnavailable ? (
             <Badge variant="outline" size="sm">

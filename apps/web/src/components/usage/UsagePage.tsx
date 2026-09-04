@@ -9,6 +9,7 @@ import { cn } from "../../lib/utils";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { serverEnvironment } from "../../state/server";
 import { useUsage, type EnvironmentUsageStatus } from "../../state/usage";
+import { useQuotaSnapshot } from "../../state/quota";
 import { useAtomCommand } from "../../state/use-atom-command";
 import {
   enumerateDays,
@@ -37,6 +38,7 @@ import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { UsageLimitsSection } from "./UsageLimits";
 import { UsageProviderChart, type UsageChartMetric } from "./UsageProviderChart";
+import { UsageQuotaStrip } from "./UsageQuotaStrip";
 import { PROVIDER_ORDER, PROVIDER_PRESENTATION, providersWithUsage } from "./usageProviders";
 
 type UsageMetric = UsageChartMetric | "limits";
@@ -72,6 +74,11 @@ export function UsagePage() {
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
     reportFailure: false,
   });
+  const {
+    snapshot: quotaSnapshot,
+    isPending: quotaPending,
+    refresh: refreshQuota,
+  } = useQuotaSnapshot();
 
   // Hold the content until every environment is terminal. Rendering merged
   // totals while devices are still answering makes every number on the page
@@ -134,6 +141,7 @@ export function UsagePage() {
     } else {
       setWindowSelection({ days: windowDays, window: nextWindow });
     }
+    refreshQuota();
   };
   const windowLabel =
     isPast24Hours && window.sinceTime !== undefined && window.untilTime !== undefined
@@ -269,6 +277,11 @@ export function UsagePage() {
             ) : settling ? (
               <>
                 {environments.length > 1 ? <UsageDeviceStrip environments={environments} /> : null}
+                <UsageQuotaStrip
+                  snapshot={quotaSnapshot}
+                  isPending={quotaPending}
+                  onRefresh={refreshQuota}
+                />
                 <UsageSkeleton />
               </>
             ) : (
@@ -277,6 +290,12 @@ export function UsagePage() {
                   environments={environments}
                   duplicateSources={merged.duplicateSources}
                   staleEnvironments={merged.staleEnvironments}
+                />
+
+                <UsageQuotaStrip
+                  snapshot={quotaSnapshot}
+                  isPending={quotaPending}
+                  onRefresh={refreshQuota}
                 />
 
                 <section className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">

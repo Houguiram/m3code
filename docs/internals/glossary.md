@@ -97,6 +97,10 @@ The live backend agent implementation and its event stream. The main service is 
 
 The backend agent runtime that actually performs work. Six drivers ship built in: Codex, Claude, Cursor, Grok, OpenCode, and Antigravity. See [ProviderService.ts][14], [ProviderAdapter.ts][15], and [CodexAdapter.ts][17] as a representative adapter.
 
+#### Quota snapshot
+
+Remaining subscription windows (session / weekly / plan) for Claude, Codex, and Cursor, read from the local CodexBar CLI and joined onto provider instances by email or a Settings pin. Distinct from the Usage page's local token/cost scan. See [quota.ts](../../packages/contracts/src/quota.ts) and [docs/user/usage.md](../user/usage.md).
+
 #### Session
 
 The live provider-backed runtime attached to a thread. Session shape is in [the orchestration contracts][1], and lifecycle is managed in [ProviderService.ts][14].

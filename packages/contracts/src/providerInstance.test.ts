@@ -94,6 +94,15 @@ describe("ProviderInstanceConfig", () => {
     expect(decoded.config).toBeUndefined();
   });
 
+  it("preserves a CodexBar account pin on the instance envelope", () => {
+    const decoded = decodeProviderInstanceConfig({
+      driver: "codex",
+      displayName: "Codex Work",
+      codexBarAccount: "  marin@firstconcepts.co — First Concepts  ",
+    });
+    expect(decoded.codexBarAccount).toBe("marin@firstconcepts.co — First Concepts");
+  });
+
   it("preserves driver-opaque config payloads verbatim", () => {
     const opaqueConfig = { homePath: "~/.codex_personal", binaryPath: "codex" };
     const decoded = decodeProviderInstanceConfig({

@@ -127,6 +127,11 @@ export const ProviderInstanceConfig = Schema.Struct({
   accentColor: Schema.optional(TrimmedNonEmptyString),
   environment: Schema.optionalKey(ProviderInstanceEnvironment),
   enabled: Schema.optionalKey(Schema.Boolean),
+  /**
+   * Optional CodexBar account key, email, or label used to pin remaining
+   * quota onto this instance when automatic email matching is ambiguous.
+   */
+  codexBarAccount: Schema.optional(TrimmedNonEmptyString),
   config: Schema.optionalKey(Schema.Unknown),
 });
 export type ProviderInstanceConfig = typeof ProviderInstanceConfig.Type;
