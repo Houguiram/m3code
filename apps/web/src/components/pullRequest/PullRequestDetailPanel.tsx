@@ -2200,7 +2200,7 @@ export function PullRequestDetailPanel({
                                 setConfirmation({ open: true, action: "merge-bypass" });
                               }}
                             >
-                              <GitMergeIcon className="size-3.5" />
+                              <PullRequestGlyph.merged className="size-3.5" />
                               Merge on GitHub ({PULL_REQUEST_MERGE_METHOD_LABELS[method]})
                             </MenuItem>
                           ))

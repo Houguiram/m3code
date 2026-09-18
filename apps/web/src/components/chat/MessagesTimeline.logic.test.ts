@@ -3290,8 +3290,8 @@ describe("deriveMessagesTimelineRows", () => {
       ],
       isWorking: false,
       activeTurnStartedAt: null,
-      turnDiffSummaryByAssistantMessageId: new Map(),
-      revertTurnCountByUserMessageId: new Map(),
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
     });
 
     const foldRow = rows.find((row) => row.kind === "turn-fold");
@@ -3307,7 +3307,7 @@ describe("deriveMessagesTimelineRows", () => {
     expect(foldRow?.kind === "turn-fold" ? foldRow.label : null).toBe("Worked for 22s");
   });
 
-  it("carries the turn runtime onto a detached assistant-meta footer", () => {
+  it("carries the turn runtime onto the collapsed trailing-work fold", () => {
     const turnId = TurnId.make("turn-1");
     const rows = deriveMessagesTimelineRows({
       timelineEntries: [
@@ -3348,16 +3348,15 @@ describe("deriveMessagesTimelineRows", () => {
       },
       isWorking: false,
       activeTurnStartedAt: null,
-      turnDiffSummaryByAssistantMessageId: new Map(),
-      revertTurnCountByUserMessageId: new Map(),
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
     });
 
-    // A turn ending in tool calls moves its footer to a detached meta row —
-    // the runtime has to travel with it or it disappears from the UI.
+    // Collapsed trailing tools become a fold; the runtime lives on that fold
+    // so it does not disappear with the hidden work rows.
     expect(rows.at(-1)).toMatchObject({
-      kind: "assistant-meta",
-      turnRuntimeMs: 10_000,
-      turnRuntimeLabel: "Worked for 10s",
+      kind: "turn-fold",
+      label: "Worked for 10s",
     });
   });
 
@@ -3387,8 +3386,8 @@ describe("deriveMessagesTimelineRows", () => {
       },
       isWorking: false,
       activeTurnStartedAt: null,
-      turnDiffSummaryByAssistantMessageId: new Map(),
-      revertTurnCountByUserMessageId: new Map(),
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
     });
 
     const terminalRow = rows.find(
@@ -3426,8 +3425,8 @@ describe("deriveMessagesTimelineRows", () => {
       runningTurnId: "turn-1" as never,
       isWorking: true,
       activeTurnStartedAt: "2026-01-01T00:00:00Z",
-      turnDiffSummaryByAssistantMessageId: new Map(),
-      revertTurnCountByUserMessageId: new Map(),
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
     });
 
     const terminalRow = rows.find(

@@ -911,14 +911,8 @@ function MarkdownCodeBlock(props: {
               <SymbolView
                 name={
                   mermaidView === "diagram"
-                    ? {
-                        ios: "chevron.left.forwardslash.chevron.right",
-                        android: "code",
-                      }
-                    : {
-                        ios: "point.3.connected.trianglepath.dotted",
-                        android: "device_hub",
-                      }
+                    ? "chevron.left.forwardslash.chevron.right"
+                    : "point.3.connected.trianglepath.dotted"
                 }
                 size={16}
                 tintColor={props.copyTintColor}
