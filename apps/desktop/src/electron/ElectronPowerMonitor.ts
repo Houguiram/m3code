@@ -77,6 +77,7 @@ const onSpeedLimitChange: ElectronPowerMonitor["Service"]["onSpeedLimitChange"] 
   ).pipe(Effect.asVoid);
 };
 
+/** @public Service construction is part of the canonical Effect module API. */
 export const make = (() => {
   let keepAwakeBlockerId: number | null = null;
   let keepAwakeDisplayOn = false;

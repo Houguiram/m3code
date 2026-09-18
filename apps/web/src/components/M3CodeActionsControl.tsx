@@ -16,6 +16,7 @@ import {
   M3_CODE_DESKTOP_DEV_COMMAND,
   M3_CODE_GRAPHITE_SUBMIT_COMMAND,
   M3_CODE_GRAPHITE_SYNC_COMMAND,
+  M3_CODE_INSTALL_LOCAL_COMMAND,
 } from "~/m3CodeActions.logic";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { Button } from "./ui/button";
@@ -106,7 +107,7 @@ export function M3CodeActionsControl({
     const bridge = window.desktopBridge;
     const openTerminal = bridge?.openM3CodeLoginTerminal;
     if (typeof openTerminal !== "function") {
-      onRunCommand("vp run install:desktop:local", { preferNewTerminal: true });
+      onRunCommand(M3_CODE_INSTALL_LOCAL_COMMAND, { preferNewTerminal: true });
       return;
     }
     let confirmed = false;
@@ -230,7 +231,7 @@ export function M3CodeActionsControl({
                   void runDetachedInstall();
                   return;
                 }
-                onRunCommand("vp run install:desktop:local", { preferNewTerminal: true });
+                onRunCommand(M3_CODE_INSTALL_LOCAL_COMMAND, { preferNewTerminal: true });
               }}
             >
               <DownloadIcon className="size-4" />

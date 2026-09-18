@@ -81,7 +81,9 @@ describe("DesktopEarlyElectronStartup", () => {
     });
 
     assert.deepEqual(options, {
+      isDevelopment: true,
       linuxWmClass: "m3code-dev",
+      linuxDesktopEntryName: "com.houguiram.M3Code.Development.desktop",
       passwordStore: "gnome-libsecret",
     });
   });

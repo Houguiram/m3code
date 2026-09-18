@@ -5,7 +5,7 @@
  */
 import type { QuotaWindow } from "@t3tools/contracts";
 
-export function clampPercent(value: number): number {
+function clampPercent(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.min(100, Math.max(0, value));
 }
