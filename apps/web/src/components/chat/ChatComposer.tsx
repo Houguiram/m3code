@@ -37,7 +37,6 @@ import type {
 import {
   ProviderDriverKind,
   ProviderInstanceId,
-  type ProjectId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
