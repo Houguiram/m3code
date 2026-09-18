@@ -24,7 +24,7 @@ export interface QuotaInstanceCandidate {
   readonly pin?: string | undefined;
 }
 
-export function normalizeQuotaIdentity(value: string | null | undefined): string {
+function normalizeQuotaIdentity(value: string | null | undefined): string {
   return value?.trim().toLowerCase() ?? "";
 }
 

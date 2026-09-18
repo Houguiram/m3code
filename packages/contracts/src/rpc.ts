@@ -486,7 +486,7 @@ const WsServerRefreshProvidersRpc = Rpc.make(WS_METHODS.serverRefreshProviders, 
   error: Schema.Union([EnvironmentAuthorizationError, ProviderSetupError]),
 });
 
-export const WsProviderListSkillsRpc = Rpc.make(WS_METHODS.providerListSkills, {
+const WsProviderListSkillsRpc = Rpc.make(WS_METHODS.providerListSkills, {
   payload: ProviderSkillsListInput,
   success: ProviderSkillsListResult,
   error: EnvironmentAuthorizationError,
@@ -654,7 +654,7 @@ const WsServerRefreshUsageRatesRpc = Rpc.make(WS_METHODS.serverRefreshUsageRates
   error: EnvironmentAuthorizationError,
 });
 
-export const WsServerGetQuotaSnapshotRpc = Rpc.make(WS_METHODS.serverGetQuotaSnapshot, {
+const WsServerGetQuotaSnapshotRpc = Rpc.make(WS_METHODS.serverGetQuotaSnapshot, {
   payload: Schema.Struct({}),
   success: QuotaSnapshot,
   error: EnvironmentAuthorizationError,

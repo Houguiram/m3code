@@ -94,7 +94,7 @@ export const GlassOpacity = Schema.Int.check(
   }),
 );
 export type GlassOpacity = typeof GlassOpacity.Type;
-export const DEFAULT_GLASS_OPACITY: GlassOpacity = 80;
+const DEFAULT_GLASS_OPACITY: GlassOpacity = 80;
 export const MIN_SIDEBAR_TRANSPARENCY = 0;
 export const MAX_SIDEBAR_TRANSPARENCY = 100;
 export const SidebarTransparency = Schema.Int.check(
@@ -106,7 +106,7 @@ export const SidebarTransparency = Schema.Int.check(
 export type SidebarTransparency = typeof SidebarTransparency.Type;
 // Matches the original fixed macOS vibrancy tint: 62% opaque in light mode
 // and 52% opaque in dark mode.
-export const DEFAULT_SIDEBAR_TRANSPARENCY: SidebarTransparency = 50;
+const DEFAULT_SIDEBAR_TRANSPARENCY: SidebarTransparency = 50;
 
 export const MIN_APPEARANCE_CONTRAST = 50;
 export const MAX_APPEARANCE_CONTRAST = 200;

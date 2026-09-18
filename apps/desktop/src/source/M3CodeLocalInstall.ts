@@ -8,9 +8,9 @@ import * as NodeUtil from "node:util";
 
 const execFile = NodeUtil.promisify(NodeChildProcess.execFile);
 
-export const M3_CODE_INSTALL_SCRIPT_RELATIVE = "scripts/install-desktop-local.ts";
-export const M3_CODE_INSTALL_LOCAL_COMMAND = "vp run install:desktop:local";
-export const M3_CODE_REBUILD_FROM_MAIN_COMMAND = `gt sync && ${M3_CODE_INSTALL_LOCAL_COMMAND}`;
+const M3_CODE_INSTALL_SCRIPT_RELATIVE = "scripts/install-desktop-local.ts";
+const M3_CODE_INSTALL_LOCAL_COMMAND = "vp run install:desktop:local";
+const M3_CODE_REBUILD_FROM_MAIN_COMMAND = `gt sync && ${M3_CODE_INSTALL_LOCAL_COMMAND}`;
 
 export interface M3CodeLocalInstallHost {
   readonly platform: NodeJS.Platform;
@@ -25,7 +25,7 @@ export function posixSingleQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
-export function appleScriptStringLiteral(value: string): string {
+function appleScriptStringLiteral(value: string): string {
   return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
 
