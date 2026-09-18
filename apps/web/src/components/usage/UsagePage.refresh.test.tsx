@@ -14,6 +14,9 @@ vi.mock("../../state/presentation", () => ({
   environmentPresentations: { presentationsAtom: null },
 }));
 vi.mock("../../state/server", () => ({ serverEnvironment: { refreshProviders: null } }));
+vi.mock("../../state/quota", () => ({
+  useQuotaSnapshot: () => ({ snapshot: null, isPending: false, refresh: vi.fn() }),
+}));
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => state.refreshProviders }));
 vi.mock("../../env", () => ({ isElectron: false }));
 vi.mock("../../hooks/useSettings", () => ({ usePrimarySettings: () => "24h" }));
@@ -75,6 +78,7 @@ vi.mock("../WorkspaceBreadcrumb", () => ({
 }));
 vi.mock("../WorkspacePageContainer", () => ({ WorkspacePageContainer: "main" }));
 vi.mock("../WorkspacePageHeader", () => ({ WorkspacePageHeader: "header" }));
+vi.mock("./UsageQuotaStrip", () => ({ UsageQuotaStrip: () => null }));
 vi.mock("./UsageProviderChart", () => ({ UsageProviderChart: "div" }));
 vi.mock("./UsagePriceOverrides", () => ({ UsagePriceOverrides: () => null }));
 vi.mock("../chat/ProviderInstanceIcon", () => ({ ProviderInstanceIcon: () => null }));
