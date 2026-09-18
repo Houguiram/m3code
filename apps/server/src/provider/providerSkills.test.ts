@@ -75,6 +75,7 @@ function makeThread(input: {
     hasPendingApprovals: false,
     hasPendingUserInput: false,
     hasActionableProposedPlan: false,
+    pullRequests: [],
   };
 }
 
@@ -108,10 +109,13 @@ function makeLayer(input: {
     displayName: undefined,
     enabled: true,
     snapshot: {
-      maintenanceCapabilities: makeManualOnlyProviderMaintenanceCapabilities({
-        provider: driverKind,
-        packageName: null,
-      }),
+      resolveMaintenance: () =>
+        Effect.succeed(
+          makeManualOnlyProviderMaintenanceCapabilities({
+            provider: driverKind,
+            packageName: null,
+          }),
+        ),
       getSnapshot: Effect.succeed(snapshot),
       refresh: Effect.succeed(snapshot),
       streamChanges: Stream.empty,
