@@ -43,6 +43,19 @@ describe("Codex desktop handoff", () => {
       returnUrl: input.returnUrl,
     });
   });
+  it.each([false, true])(
+    "opens the registered M3 desktop scheme (development=%s)",
+    (development) => {
+      const scheme = development ? "m3code-dev" : "m3code";
+      const request = { ...input, returnUrl: `${scheme}://app/welcome#agents:remote-environment` };
+      const link = codexAuthHandoffUrl(request, development);
+      expect(new URL(link).protocol).toBe(`${scheme}:`);
+      expect(readCodexAuthHandoff(link, development)).toEqual(request);
+      expect(readCodexAuthDelivery(codexAuthDeliveryUrl(request, callbackUrl))?.returnUrl).toBe(
+        request.returnUrl,
+      );
+    },
+  );
   it("rejects other handlers, schemes, arbitrary return sites, and non-OpenAI authorization", () => {
     const link = codexAuthHandoffUrl(input);
     expect(readCodexAuthHandoff(link, true)).toBeUndefined();
