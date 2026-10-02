@@ -80,9 +80,8 @@ function makeThread(input: {
 }
 
 function makeLayer(input: {
-  readonly loadSkills: (
-    cwd: string,
-  ) => Effect.Effect<Option.Option<ReadonlyArray<ServerProviderSkill>>>;
+  readonly loadSkills?: ProviderInstance["listSkillsForCwd"];
+  readonly snapshotForCwd?: ProviderInstance["snapshotForCwd"];
   readonly threadProjectId?: ProjectId;
   readonly worktreePath?: string | null;
 }) {
@@ -121,7 +120,8 @@ function makeLayer(input: {
       streamChanges: Stream.empty,
       applyUsageLimits: () => Effect.void,
     },
-    listSkillsForCwd: input.loadSkills,
+    ...(input.loadSkills ? { listSkillsForCwd: input.loadSkills } : {}),
+    ...(input.snapshotForCwd ? { snapshotForCwd: input.snapshotForCwd } : {}),
     adapter: {} as ProviderInstance["adapter"],
     textGeneration: {} as ProviderInstance["textGeneration"],
   } satisfies ProviderInstance;
@@ -199,5 +199,30 @@ it.effect("preserves the provider snapshot when scoped discovery fails", () =>
       source: "providerSnapshot",
       skills: [fallbackSkill],
     });
+  }),
+);
+
+it.effect("uses workspace snapshots for providers without a separate skills loader", () =>
+  Effect.gen(function* () {
+    let discoveredCwd: string | undefined;
+    const baseLayer = makeLayer({});
+    const registry = yield* ProviderInstanceRegistry.ProviderInstanceRegistry.pipe(
+      Effect.provide(baseLayer),
+    );
+    const instance = yield* registry.getInstance(instanceId);
+    assert.ok(instance);
+    const snapshot = yield* instance.snapshot.getSnapshot;
+    const result = yield* queryProviderSkills({ instanceId, projectId, threadId }).pipe(
+      Effect.provide(
+        makeLayer({
+          snapshotForCwd: (cwd) => {
+            discoveredCwd = cwd;
+            return Effect.succeed({ ...snapshot, skills: [workspaceSkill] });
+          },
+        }),
+      ),
+    );
+    assert.strictEqual(discoveredCwd, "/worktrees/feature");
+    assert.deepStrictEqual(result, { source: "workspace", skills: [workspaceSkill] });
   }),
 );

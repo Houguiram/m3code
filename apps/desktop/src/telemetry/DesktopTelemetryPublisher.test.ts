@@ -39,7 +39,6 @@ function makeElectronAppLayer(
       onMetricsRead();
       return metrics;
     }),
-    isDefaultProtocolClient: () => Effect.succeed(false),
     setAsDefaultProtocolClient: () => Effect.succeed(true),
     setDesktopName: () => Effect.void,
     setDockIcon: () => Effect.void,
@@ -176,7 +175,7 @@ describe("DesktopTelemetryPublisher", () => {
 
         const nextSnapshotFiber = yield* Stream.runHead(publisher.changes).pipe(Effect.forkChild);
         yield* Effect.yieldNow;
-        yield* publisher.handleControl({
+        yield* publisher.handleControlForSource("primary-backend", {
           version: 1,
           type: "setDiagnosticsDemand",
           enabled: true,
@@ -192,7 +191,7 @@ describe("DesktopTelemetryPublisher", () => {
           type: "setDiagnosticsDemand",
           enabled: true,
         });
-        yield* publisher.handleControl({
+        yield* publisher.handleControlForSource("primary-backend", {
           version: 1,
           type: "setDiagnosticsDemand",
           enabled: false,
@@ -312,7 +311,7 @@ describe("DesktopTelemetryPublisher", () => {
           Effect.forkChild,
         );
         yield* Effect.yieldNow;
-        yield* publisher.handleControl({
+        yield* publisher.handleControlForSource("primary-backend", {
           version: 1,
           type: "setHostPowerIntervals",
           activeIntervalMs: 7_000,
@@ -373,7 +372,7 @@ describe("DesktopTelemetryPublisher", () => {
           Effect.forkChild,
         );
         yield* Effect.yieldNow;
-        yield* publisher.handleControl({
+        yield* publisher.handleControlForSource("primary-backend", {
           version: 1,
           type: "setDiagnosticsDemand",
           enabled: true,

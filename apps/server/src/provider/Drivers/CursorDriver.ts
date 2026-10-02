@@ -143,18 +143,29 @@ export const CursorDriver: ProviderDriver<CursorSettings, CursorDriverEnv> = {
         ),
       );
 
-      const discoverModels = yield* makeCursorModelDiscovery(effectiveConfig, processEnv);
+      const modelDiscovery = yield* makeCursorModelDiscovery(effectiveConfig, processEnv);
       const checkProvider = checkCursorProviderStatus(
         effectiveConfig,
         processEnv,
-        discoverModels,
+        modelDiscovery.discover,
       ).pipe(
-        Effect.flatMap((snapshot) =>
-          effectiveConfig.enabled && snapshot.installed && snapshot.auth.status === "authenticated"
-            ? readCursorUsageLimits(effectiveConfig, processEnv).pipe(
-                Effect.map((usageLimits) => ({ ...snapshot, usageLimits })),
-              )
-            : Effect.succeed(snapshot),
+        Effect.filterOrElse(
+          (snapshot) =>
+            !(
+              effectiveConfig.enabled &&
+              snapshot.installed &&
+              snapshot.auth.status === "authenticated"
+            ),
+          (snapshot) =>
+            Effect.gen(function* () {
+              const settings = yield* serverSettings.getSettings;
+              const usageLimits = yield* readCursorUsageLimits(
+                effectiveConfig,
+                processEnv,
+                settings.cursorKeychainUsageEnabled,
+              );
+              return { ...snapshot, usageLimits };
+            }),
         ),
         Effect.map(stampIdentity),
         Effect.provideService(HttpClient.HttpClient, httpClient),
@@ -227,6 +238,10 @@ export const CursorDriver: ProviderDriver<CursorSettings, CursorDriverEnv> = {
         enabled,
         snapshot,
         listSkillsForCwd: (workspaceCwd) => Cache.get(skillsCache, workspaceCwd),
+        invalidateCaches: Effect.andThen(
+          modelDiscovery.invalidate,
+          Cache.invalidateAll(skillsCache),
+        ),
         snapshotForCwd: (cwd) =>
           !effectiveConfig.enabled
             ? snapshot.getSnapshot
