@@ -58,7 +58,7 @@ export function UsageQuotaStrip(props: {
     <section className="rounded-xl border border-border/60 px-4 py-3">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm font-medium text-foreground">Remaining this window</p>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           From CodexBar · account limits, not token cost
         </p>
       </div>
@@ -71,7 +71,7 @@ export function UsageQuotaStrip(props: {
             <div key={binding.instanceId} className="min-w-0">
               <p className="truncate text-sm text-foreground">{title}</p>
               {binding.account ? (
-                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                <p className="mt-0.5 truncate text-2xs text-muted-foreground">
                   {binding.account.label}
                   {binding.account.plan ? ` · ${binding.account.plan}` : ""}
                 </p>

@@ -31,7 +31,17 @@ export const queryProviderSkills = Effect.fn("queryProviderSkills")(function* (
     return providerSnapshotResult([]);
   }
   const fallbackSkills = (yield* instance.snapshot.getSnapshot).skills;
-  if (!instance.listSkillsForCwd) {
+  const snapshotForCwd = instance.snapshotForCwd;
+  const listSkillsForCwd =
+    instance.listSkillsForCwd ??
+    (snapshotForCwd
+      ? (cwd: string) =>
+          snapshotForCwd(cwd).pipe(
+            Effect.map((snapshot) => Option.some(snapshot.skills)),
+            Effect.orElseSucceed(() => Option.none()),
+          )
+      : undefined);
+  if (!listSkillsForCwd) {
     return providerSnapshotResult(fallbackSkills);
   }
 
@@ -52,7 +62,7 @@ export const queryProviderSkills = Effect.fn("queryProviderSkills")(function* (
     }
   }
 
-  const skills = yield* instance.listSkillsForCwd(cwd);
+  const skills = yield* listSkillsForCwd(cwd);
   if (Option.isNone(skills)) {
     return providerSnapshotResult(fallbackSkills);
   }

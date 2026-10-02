@@ -51,9 +51,6 @@ interface M3CodeActionsControlProps {
   onRunCommand: (command: string, options?: M3CodeTerminalCommandOptions) => void;
 }
 
-const dropdownItemClassName =
-  "data-highlighted:bg-transparent data-highlighted:text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground data-highlighted:hover:bg-accent data-highlighted:hover:text-accent-foreground data-highlighted:focus-visible:bg-accent data-highlighted:focus-visible:text-accent-foreground";
-
 export function M3CodeActionsControl({
   cwd,
   candidatePaths,
@@ -164,16 +161,10 @@ export function M3CodeActionsControl({
 
   return (
     <>
-      <Menu highlightItemOnHover={false}>
+      <Menu>
         <MenuTrigger
           render={
-            <Button
-              size="xs"
-              variant="outline"
-              aria-label="M3 actions"
-              data-toolbar-control=""
-              className="w-7 px-0 sm:w-6 @3xl/header-actions:w-auto! @3xl/header-actions:px-[calc(--spacing(2)-1px)]"
-            />
+            <Button size="xs" variant="outline" aria-label="M3 actions" data-toolbar-control="" />
           }
         >
           <MonitorIcon className="size-3.5" />
@@ -185,21 +176,15 @@ export function M3CodeActionsControl({
         <MenuPopup align="end">
           <MenuGroup>
             <MenuGroupLabel>Graphite</MenuGroupLabel>
-            <MenuItem
-              className={dropdownItemClassName}
-              onClick={() => onRunCommand(M3_CODE_GRAPHITE_SYNC_COMMAND)}
-            >
+            <MenuItem onClick={() => onRunCommand(M3_CODE_GRAPHITE_SYNC_COMMAND)}>
               <RefreshCwIcon className="size-4" />
               Sync
             </MenuItem>
-            <MenuItem className={dropdownItemClassName} onClick={() => setCreateOpen(true)}>
+            <MenuItem onClick={() => setCreateOpen(true)}>
               <GitBranchPlusIcon className="size-4" />
               Create branch
             </MenuItem>
-            <MenuItem
-              className={dropdownItemClassName}
-              onClick={() => onRunCommand(M3_CODE_GRAPHITE_SUBMIT_COMMAND)}
-            >
+            <MenuItem onClick={() => onRunCommand(M3_CODE_GRAPHITE_SUBMIT_COMMAND)}>
               <UploadIcon className="size-4" />
               Submit stack
             </MenuItem>
@@ -218,14 +203,12 @@ export function M3CodeActionsControl({
               </MenuCheckboxItem>
             ) : null}
             <MenuItem
-              className={dropdownItemClassName}
               onClick={() => onRunCommand(M3_CODE_DESKTOP_DEV_COMMAND, { preferNewTerminal: true })}
             >
               <MonitorIcon className="size-4" />
               Start desktop dev
             </MenuItem>
             <MenuItem
-              className={dropdownItemClassName}
               onClick={() => {
                 if (isElectron) {
                   void runDetachedInstall();
