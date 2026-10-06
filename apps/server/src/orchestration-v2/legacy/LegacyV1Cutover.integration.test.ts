@@ -30,6 +30,7 @@ import { runMigrations } from "../../persistence/Migrations.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import Migration0042 from "../../persistence/Migrations/042_ProjectionThreadLinkedPullRequest.ts";
 import Migration0043 from "../../persistence/Migrations/043_ProjectionThreadsUnsettledAt.ts";
+import ProjectionProjectGraphite from "../../persistence/Migrations/044_ProjectionProjectGraphite.ts";
 import Migration0044 from "../../persistence/Migrations/044_ClearAutomaticProjectModelDefaults.ts";
 import Migration0045 from "../../persistence/Migrations/045_ProjectionProjectsAutoPull.ts";
 import Migration0046 from "../../persistence/Migrations/046_RepairAutomaticSettlementTimestamps.ts";
@@ -86,12 +87,11 @@ const codexModelSelection = {
 
 /**
  * A V1 database as it exists on disk before a V2 server first opens it: schema
- * through migration 40 plus the 42-49 tail. Slot 41 carries a site-local
+ * through migration 40 plus M3's 42-50 tail. Slot 41 carries a site-local
  * `ThreadSummaryTimeline` migration, matching production databases where local
  * builds recorded extra names under the shared id sequence. The V2 runner only
  * applies migrations past the recorded maximum id, so the cutover in this test
- * applies 050, 051 and 052 on top of the untouched copy — the same path the
- * real upgrade takes.
+ * appends the later M3 migrations on top of the untouched copy.
  */
 const seedV1Database = (fixturePath: string, workspace: string) =>
   Effect.scoped(
@@ -115,12 +115,13 @@ const seedV1Database = (fixturePath: string, workspace: string) =>
       const tailMigrations = [
         [42, "ProjectionThreadLinkedPullRequest", Migration0042],
         [43, "ProjectionThreadsUnsettledAt", Migration0043],
-        [44, "ClearAutomaticProjectModelDefaults", Migration0044],
-        [45, "ProjectionProjectsAutoPull", Migration0045],
-        [46, "RepairAutomaticSettlementTimestamps", Migration0046],
-        [47, "ProjectionProjectIcon", Migration0047],
-        [48, "ProjectionThreadBranchPullRequest", Migration0048],
-        [49, "ProjectionThreadsActiveOrderKey", Migration0049],
+        [44, "ProjectionProjectGraphite", ProjectionProjectGraphite],
+        [45, "ClearAutomaticProjectModelDefaults", Migration0044],
+        [46, "ProjectionProjectsAutoPull", Migration0045],
+        [47, "RepairAutomaticSettlementTimestamps", Migration0046],
+        [48, "ProjectionProjectIcon", Migration0047],
+        [49, "ProjectionThreadBranchPullRequest", Migration0048],
+        [50, "ProjectionThreadsActiveOrderKey", Migration0049],
       ] as const;
       for (const [id, name, migration] of tailMigrations) {
         yield* migration;
