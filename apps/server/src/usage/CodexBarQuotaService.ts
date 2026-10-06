@@ -16,7 +16,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { bindQuotaInstances, quotaProviderForDriver } from "@t3tools/shared/quotaMatch";
 import { isCommandMissingCause, spawnAndCollect } from "../provider/providerSnapshot.ts";
@@ -60,16 +60,6 @@ export class CodexBarQuotaService extends Context.Service<
     ) => Effect.Effect<QuotaSnapshot>;
   }
 >()("t3/usage/CodexBarQuotaService") {}
-
-export const layerTest = Layer.succeed(
-  CodexBarQuotaService,
-  CodexBarQuotaService.of({
-    readSnapshot: (_providers) =>
-      Effect.succeed(
-        EMPTY_SNAPSHOT("1970-01-01T00:00:00.000Z", "CodexBar quota is disabled in tests."),
-      ),
-  }),
-);
 
 const runCodexBar = Effect.fn("CodexBarQuotaService.runCodexBar")(function* (
   args: ReadonlyArray<string>,

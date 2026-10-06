@@ -4,7 +4,6 @@ import {
   ProviderInstanceId,
   ThreadId,
   type OrchestrationProjectShell,
-  type OrchestrationThreadShell,
   type ServerProvider,
   type ServerProviderSkill,
 } from "@t3tools/contracts";
@@ -14,9 +13,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 
-import * as ProjectionSnapshotQuery from "../orchestration/Services/ProjectionSnapshotQuery.ts";
+import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
+import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import type { ProviderInstance } from "./ProviderDriver.ts";
-import * as ProviderInstanceRegistry from "./Services/ProviderInstanceRegistry.ts";
+import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
 import { makeManualOnlyProviderMaintenanceCapabilities } from "./providerMaintenance.ts";
 import { queryProviderSkills } from "./providerSkills.ts";
 
@@ -50,34 +50,6 @@ const project = {
   createdAt: now,
   updatedAt: now,
 } satisfies OrchestrationProjectShell;
-
-function makeThread(input: {
-  readonly projectId: ProjectId;
-  readonly worktreePath: string | null;
-}): OrchestrationThreadShell {
-  return {
-    id: threadId,
-    projectId: input.projectId,
-    title: "Test thread",
-    modelSelection: { instanceId, model: "claude-sonnet" },
-    runtimeMode: "full-access",
-    interactionMode: "default",
-    branch: null,
-    worktreePath: input.worktreePath,
-    latestTurn: null,
-    createdAt: now,
-    updatedAt: now,
-    archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
-    session: null,
-    latestUserMessageAt: null,
-    hasPendingApprovals: false,
-    hasPendingUserInput: false,
-    hasActionableProposedPlan: false,
-    pullRequests: [],
-  };
-}
 
 function makeLayer(input: {
   readonly loadSkills?: ProviderInstance["listSkillsForCwd"];
@@ -122,26 +94,26 @@ function makeLayer(input: {
     },
     ...(input.loadSkills ? { listSkillsForCwd: input.loadSkills } : {}),
     ...(input.snapshotForCwd ? { snapshotForCwd: input.snapshotForCwd } : {}),
-    adapter: {} as ProviderInstance["adapter"],
+    orchestrationAdapter: {} as ProviderInstance["orchestrationAdapter"],
     textGeneration: {} as ProviderInstance["textGeneration"],
   } satisfies ProviderInstance;
 
-  return Layer.merge(
+  return Layer.mergeAll(
     Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({
       getInstance: () => Effect.succeed(instance),
     }),
-    Layer.mock(ProjectionSnapshotQuery.ProjectionSnapshotQuery)({
-      getProjectShellById: () => Effect.succeed(Option.some(project)),
-      getThreadShellById: () =>
-        Effect.succeed(
-          Option.some({
-            ...makeThread({
-              projectId: input.threadProjectId ?? projectId,
-              worktreePath:
-                input.worktreePath === undefined ? "/worktrees/feature" : input.worktreePath,
-            }),
-          }),
-        ),
+    Layer.mock(ProjectStore.ProjectStoreV2)({
+      getShell: () => Effect.succeed(Option.some(project)),
+    }),
+    Layer.mock(ProjectionStore.ProjectionStoreV2)({
+      getThreadShell: () =>
+        Effect.succeed({
+          projectId: input.threadProjectId ?? projectId,
+          worktreePath:
+            input.worktreePath === undefined ? "/worktrees/feature" : input.worktreePath,
+        } as NonNullable<
+          Effect.Success<ReturnType<ProjectionStore.ProjectionStoreV2["Service"]["getThreadShell"]>>
+        >),
     }),
   );
 }

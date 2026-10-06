@@ -6,7 +6,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { type QuotaSnapshot } from "@t3tools/contracts";
 import * as Option from "effect/Option";
-import { AsyncResult, Atom } from "effect/unstable/reactivity";
+import { AsyncResult, Atom } from "effect/reactivity";
 import { useCallback } from "react";
 
 import { appAtomRegistry } from "./atom-registry";

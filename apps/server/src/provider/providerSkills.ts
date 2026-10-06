@@ -6,8 +6,9 @@ import type {
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import * as ProjectionSnapshotQuery from "../orchestration/Services/ProjectionSnapshotQuery.ts";
-import * as ProviderInstanceRegistry from "./Services/ProviderInstanceRegistry.ts";
+import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
+import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
+import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
 
 const providerSnapshotResult = (
   skills: ReadonlyArray<ServerProviderSkill>,
@@ -21,11 +22,13 @@ export const queryProviderSkills = Effect.fn("queryProviderSkills")(function* (
 ): Effect.fn.Return<
   ProviderSkillsListResult,
   never,
-  | ProjectionSnapshotQuery.ProjectionSnapshotQuery
+  | ProjectStore.ProjectStoreV2
+  | ProjectionStore.ProjectionStoreV2
   | ProviderInstanceRegistry.ProviderInstanceRegistry
 > {
   const providerRegistry = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
-  const snapshotQuery = yield* ProjectionSnapshotQuery.ProjectionSnapshotQuery;
+  const projects = yield* ProjectStore.ProjectStoreV2;
+  const threads = yield* ProjectionStore.ProjectionStoreV2;
   const instance = yield* providerRegistry.getInstance(input.instanceId);
   if (!instance) {
     return providerSnapshotResult([]);
@@ -45,8 +48,8 @@ export const queryProviderSkills = Effect.fn("queryProviderSkills")(function* (
     return providerSnapshotResult(fallbackSkills);
   }
 
-  const project = yield* snapshotQuery
-    .getProjectShellById(input.projectId)
+  const project = yield* projects
+    .getShell(input.projectId)
     .pipe(Effect.orElseSucceed(() => Option.none()));
   if (Option.isNone(project)) {
     return providerSnapshotResult(fallbackSkills);
@@ -54,11 +57,11 @@ export const queryProviderSkills = Effect.fn("queryProviderSkills")(function* (
 
   let cwd = project.value.workspaceRoot;
   if (input.threadId) {
-    const thread = yield* snapshotQuery
-      .getThreadShellById(input.threadId)
-      .pipe(Effect.orElseSucceed(() => Option.none()));
-    if (Option.isSome(thread) && thread.value.projectId === input.projectId) {
-      cwd = thread.value.worktreePath ?? cwd;
+    const thread = yield* threads
+      .getThreadShell(input.threadId)
+      .pipe(Effect.orElseSucceed(() => null));
+    if (thread !== null && thread.projectId === input.projectId) {
+      cwd = thread.worktreePath ?? cwd;
     }
   }
 
