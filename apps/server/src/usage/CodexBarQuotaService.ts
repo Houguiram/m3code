@@ -16,7 +16,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { bindQuotaInstances, quotaProviderForDriver } from "@t3tools/shared/quotaMatch";
 import { isCommandMissingCause, spawnAndCollect } from "../provider/providerSnapshot.ts";
