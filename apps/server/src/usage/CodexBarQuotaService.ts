@@ -61,16 +61,6 @@ export class CodexBarQuotaService extends Context.Service<
   }
 >()("t3/usage/CodexBarQuotaService") {}
 
-export const layerTest = Layer.succeed(
-  CodexBarQuotaService,
-  CodexBarQuotaService.of({
-    readSnapshot: (_providers) =>
-      Effect.succeed(
-        EMPTY_SNAPSHOT("1970-01-01T00:00:00.000Z", "CodexBar quota is disabled in tests."),
-      ),
-  }),
-);
-
 const runCodexBar = Effect.fn("CodexBarQuotaService.runCodexBar")(function* (
   args: ReadonlyArray<string>,
 ): Effect.fn.Return<CliLaunch, never, ChildProcessSpawner.ChildProcessSpawner> {
