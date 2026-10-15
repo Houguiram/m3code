@@ -15,9 +15,9 @@ import * as Stream from "effect/Stream";
 
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
-import type { ProviderInstance } from "./ProviderDriver.ts";
+import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
 import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
-import { makeManualOnlyProviderMaintenanceCapabilities } from "./providerMaintenance.ts";
+import { makeManualOnlyProviderMaintenanceCapabilities } from "@t3tools/provider-core/server/maintenanceResolver";
 import { queryProviderSkills } from "./providerSkills.ts";
 
 const instanceId = ProviderInstanceId.make("claude-work");
