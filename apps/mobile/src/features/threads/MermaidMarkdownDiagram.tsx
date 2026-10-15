@@ -13,12 +13,12 @@ import {
   type MermaidBlockView,
   type MermaidRenderStatus,
 } from "@t3tools/client-runtime/mermaid-language";
-import { MermaidDiagram } from "../features/threads/MermaidDiagram";
-import { useMarkdownCodeHighlight } from "../features/threads/markdownCodeHighlightState";
-import type { ReviewDiffTheme } from "../features/review/shikiReviewHighlighter";
-import { SymbolView } from "../components/AppSymbol";
-import { CopyTextButton } from "../components/CopyTextButton";
-import type { NativeMarkdownTextStyle } from "./SelectableMarkdownText.types";
+import { MermaidDiagram } from "./MermaidDiagram";
+import { useMarkdownCodeHighlight } from "./markdownCodeHighlightState";
+import type { ReviewDiffTheme } from "../review/shikiReviewHighlighter";
+import { SymbolView } from "../../components/AppSymbol";
+import { CopyTextButton } from "../../components/CopyTextButton";
+import type { NativeMarkdownTextStyle } from "../../native/SelectableMarkdownText.types";
 
 export function MermaidMarkdownDiagram(props: {
   readonly code: string;

@@ -1,3 +1,4 @@
+import { ThreadMarkdownText } from "./ThreadMarkdownText";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
 import { ThreadMarkdownVideo, ThreadMediaVisibleContext } from "./ThreadMarkdownVideo";
 import { useMarkdownImageSource } from "../../native/useMarkdownImageSource";
@@ -115,7 +116,6 @@ import { downloadAndShareAttachment } from "../../lib/attachmentDownload";
 import { hasWideMarkdownBlock } from "../../lib/wideMarkdownBlocks";
 import { faviconUrlForOrigin } from "@t3tools/shared/favicon";
 import {
-  SelectableMarkdownText,
   type MarkdownFileContextMenu,
   type MarkdownImageRenderer,
   type MarkdownImageSourceResolver,
@@ -837,7 +837,7 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
 
     const markdown = renderCodexInlineDirectivesAsMarkdown(segment.markdown);
     return (
-      <SelectableMarkdownText
+      <ThreadMarkdownText
         key={`markdown:${segment.sourceOffset}`}
         markdown={markdown}
         skills={props.skills}
@@ -1633,7 +1633,7 @@ function UserMessageMarkdownContent(props: UserMessageContentProps) {
     : undefined;
   if (!hasReviewComment) {
     return (
-      <SelectableMarkdownText
+      <ThreadMarkdownText
         markdown={text}
         contextClipboardFragment={contextClipboardFragment}
         skills={props.skills}
@@ -1664,7 +1664,7 @@ function UserMessageMarkdownContent(props: UserMessageContentProps) {
         }
 
         return (
-          <SelectableMarkdownText
+          <ThreadMarkdownText
             key={segment.id}
             markdown={text}
             contextClipboardFragment={contextClipboardFragment}
