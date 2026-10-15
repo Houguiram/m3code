@@ -20,7 +20,8 @@ export function mermaidMarkdown(source: string) {
     }
   };
   visit(parseMarkdownDocument(markdown));
-  for (const edit of edits.toReversed()) {
+  for (let index = edits.length - 1; index >= 0; index -= 1) {
+    const edit = edits[index]!;
     markdown = markdown.slice(0, edit.start) + edit.replacement + markdown.slice(edit.end);
   }
   return { markdown, diagrams };
