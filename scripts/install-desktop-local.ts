@@ -2,7 +2,7 @@
 
 // @effect-diagnostics nodeBuiltinImport:off globalTimers:off globalDate:off - Host-side macOS installation uses Node subprocess and timing APIs directly.
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
-import { HostProcessArchitecture, HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
@@ -237,8 +237,8 @@ async function main(
 
 if (import.meta.main) {
   Effect.gen(function* () {
-    const hostPlatform = yield* HostProcessPlatform;
-    const hostArchitecture = yield* HostProcessArchitecture;
+    const hostPlatform = yield* HostProcess.Platform;
+    const hostArchitecture = yield* HostProcess.Architecture;
     yield* Effect.tryPromise(() => main(hostPlatform, hostArchitecture));
   }).pipe(NodeRuntime.runMain);
 }

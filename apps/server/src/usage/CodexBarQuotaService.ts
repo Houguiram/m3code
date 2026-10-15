@@ -19,7 +19,10 @@ import * as Result from "effect/Result";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { bindQuotaInstances, quotaProviderForDriver } from "@t3tools/shared/quotaMatch";
-import { isCommandMissingCause, spawnAndCollect } from "../provider/providerSnapshot.ts";
+import {
+  isCommandMissingCause,
+  spawnAndCollect,
+} from "@t3tools/provider-core/server/snapshotProbe";
 import * as ServerSettings from "../serverSettings.ts";
 import { mergeQuotaAccounts, parseCodexBarUsageJson } from "./codexBarUsage.ts";
 

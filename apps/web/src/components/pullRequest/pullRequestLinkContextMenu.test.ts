@@ -1,3 +1,4 @@
+import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import { describe, expect, it } from "vite-plus/test";
 
 import { openOnHostLabel, pullRequestLinkContextMenuItems } from "./pullRequestLinkContextMenu";
@@ -38,10 +39,10 @@ describe("pull request link context menu", () => {
   });
 
   it("names every host it knows, and says nothing false about one it does not", () => {
-    expect(openOnHostLabel("github")).toBe("Open on GitHub");
-    expect(openOnHostLabel("gitlab")).toBe("Open on GitLab");
-    expect(openOnHostLabel("bitbucket")).toBe("Open on Bitbucket");
-    expect(openOnHostLabel("azure-devops")).toBe("Open on Azure DevOps");
-    expect(openOnHostLabel("something-else")).toBe("Open on host");
+    expect(openOnHostLabel(sourceControlClients.get("github"))).toBe("Open on GitHub");
+    expect(openOnHostLabel(sourceControlClients.get("gitlab"))).toBe("Open on GitLab");
+    expect(openOnHostLabel(sourceControlClients.get("bitbucket"))).toBe("Open on Bitbucket");
+    expect(openOnHostLabel(sourceControlClients.get("azure-devops"))).toBe("Open on Azure DevOps");
+    expect(openOnHostLabel(sourceControlClients.get("something-else"))).toBe("Open on host");
   });
 });
