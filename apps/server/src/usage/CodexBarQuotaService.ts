@@ -1,12 +1,4 @@
-/**
- * CodexBarQuotaService - remaining subscription limits via the local CLI.
- *
- * Personal-fork path: exec `codexbar usage` rather than scrape cookies or
- * call unofficial provider APIs directly. Missing CLI, timeouts, and parse
- * failures return an unavailable snapshot instead of failing the RPC.
- *
- * @module CodexBarQuotaService
- */
+// Missing CodexBar, timeouts, and parse failures yield an unavailable quota snapshot.
 import { type QuotaAccount, type QuotaSnapshot, type ServerProvider } from "@t3tools/contracts";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -214,10 +206,11 @@ export const layer = Layer.effect(
     });
 
     return CodexBarQuotaService.of({
-      readSnapshot: (providers) =>
+      readSnapshot: Effect.fn("CodexBarQuotaService.readSnapshot")((providers) =>
         readSnapshot(providers).pipe(
           Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         ),
+      ),
     });
   }),
 );

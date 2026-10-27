@@ -1,7 +1,7 @@
 import type { ContextMenuItem } from "@t3tools/contracts";
 import { graphitePullRequestUrl } from "@t3tools/shared/sourceControl";
 import {
-  type SourceControlClientDefinition,
+  type SourceControlDefinition,
   UNKNOWN_SOURCE_CONTROL_CLIENT,
 } from "@t3tools/client-runtime/source-control-clients";
 
@@ -12,8 +12,7 @@ import { toastManager } from "../ui/toast";
 
 export type PullRequestLinkContextMenuAction = "copy-link" | "open-external" | "open-graphite";
 
-/** Named for the host rather than "externally": the point is where you will land. */
-export const openOnHostLabel = (host: SourceControlClientDefinition): string =>
+export const openOnHostLabel = (host: SourceControlDefinition): string =>
   host === UNKNOWN_SOURCE_CONTROL_CLIENT ? "Open on host" : `Open on ${host.label}`;
 
 /**
@@ -38,15 +37,6 @@ export function pullRequestLinkContextMenuItems(
   ];
 }
 
-/**
- * The right-click on a change request's number. Everywhere else that number is written it is a
- * link, and the gesture that copies a link is the one hand reaches for — so without this the
- * platform's own edit menu opens over a control that has nothing to cut, paste or select.
- *
- * The host is named by the caller rather than guessed here: the same number belongs to GitHub,
- * GitLab, Bitbucket or Azure DevOps depending on where it was read, and the `url` the contract
- * carries is already whichever of them it came from.
- */
 export async function showPullRequestLinkContextMenu({
   url,
   openLabel,
@@ -68,8 +58,6 @@ export async function showPullRequestLinkContextMenu({
       position,
     );
   } catch {
-    // A menu that could not be shown has already cost the reader their right-click; there is
-    // nothing to say about it that a second popup would not make worse.
     return;
   }
   try {

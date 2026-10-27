@@ -6,7 +6,7 @@ import {
   RefreshCwIcon,
   UploadIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { isElectron } from "~/env";
 import { ensureLocalApi } from "~/localApi";
@@ -66,6 +66,7 @@ export function M3CodeActionsControl({
     typeof window.desktopBridge.getKeepAwakeState === "function" &&
     typeof window.desktopBridge.setKeepAwake === "function";
 
+  // oxlint-disable-next-line t3code/react-effect-budget -- Read the native power blocker when the desktop control becomes available.
   useEffect(() => {
     if (!keepAwakeSupported) return;
     let active = true;
@@ -80,7 +81,7 @@ export function M3CodeActionsControl({
     };
   }, [keepAwakeSupported]);
 
-  const setKeepAwake = useCallback(async (enabled: boolean) => {
+  const setKeepAwake = async (enabled: boolean) => {
     const update = window.desktopBridge?.setKeepAwake;
     if (typeof update !== "function") return;
     setKeepAwakePending(true);
@@ -97,9 +98,9 @@ export function M3CodeActionsControl({
     } finally {
       setKeepAwakePending(false);
     }
-  }, []);
+  };
 
-  const runDetachedInstall = useCallback(async () => {
+  const runDetachedInstall = async () => {
     if (cwd === null) return;
     const bridge = window.desktopBridge;
     const openTerminal = bridge?.openM3CodeLoginTerminal;
@@ -147,7 +148,7 @@ export function M3CodeActionsControl({
         }),
       );
     }
-  }, [candidatePaths, cwd, onRunCommand]);
+  };
 
   const submitCreate = () => {
     const message = createMessage.trim();

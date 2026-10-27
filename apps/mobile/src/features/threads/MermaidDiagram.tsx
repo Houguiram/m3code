@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { MermaidRenderStatus } from "@t3tools/client-runtime/mermaid-language";
 
-import { AppText as Text } from "../../components/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 
 const RENDER_DEBOUNCE_MS = 200;
 const MERMAID_SCRIPT_SRC = "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js";
@@ -25,7 +25,7 @@ function mermaidHostHtml(input: {
   readonly cachedSvg?: string;
 }): string {
   const theme = input.theme === "dark" ? "dark" : "neutral";
-  const source = JSON.stringify(input.code);
+  const source = JSON.stringify(input.code).replaceAll("<", "\\u003c");
   const cachedSvg = input.cachedSvg ?? "";
   const bootScript =
     cachedSvg.length > 0
@@ -103,38 +103,34 @@ export const MermaidDiagram = memo(function MermaidDiagram(props: {
   const [error, setError] = useState<string | null>(null);
   const [sourceCode, setSourceCode] = useState(cached ? trimmed : "");
   const svgRef = useRef<string | null>(cached?.svg ?? null);
-  const onStatusChangeRef = useRef(onStatusChange);
-  onStatusChangeRef.current = onStatusChange;
 
+  // oxlint-disable-next-line t3code/react-effect-budget -- Debounce source changes before sending them to the WebView renderer.
   useEffect(() => {
-    if (trimmed.length === 0) {
-      svgRef.current = null;
-      setSvg(null);
-      setHeight(0);
-      setError(null);
-      setSourceCode("");
-      onStatusChangeRef.current("idle");
-      return;
-    }
-
     const cachedSvg = mermaidSvgCache.get(key);
-    if (cachedSvg) {
-      svgRef.current = cachedSvg.svg;
-      setSvg(cachedSvg.svg);
-      setHeight(cachedSvg.height);
-      setError(null);
-      setSourceCode(trimmed);
-      onStatusChangeRef.current("ready");
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setSourceCode(trimmed);
-    }, RENDER_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [key, trimmed]);
+    const timer = setTimeout(
+      () => {
+        if (trimmed.length === 0) {
+          svgRef.current = null;
+          setSvg(null);
+          setHeight(0);
+          setError(null);
+          setSourceCode("");
+          onStatusChange("idle");
+        } else if (cachedSvg) {
+          svgRef.current = cachedSvg.svg;
+          setSvg(cachedSvg.svg);
+          setHeight(cachedSvg.height);
+          setError(null);
+          setSourceCode(trimmed);
+          onStatusChange("ready");
+        } else {
+          setSourceCode(trimmed);
+        }
+      },
+      trimmed.length === 0 || cachedSvg ? 0 : RENDER_DEBOUNCE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [key, trimmed, onStatusChange]);
 
   const html = useMemo(() => {
     if (sourceCode.length === 0) return null;
@@ -164,7 +160,7 @@ export const MermaidDiagram = memo(function MermaidDiagram(props: {
         setSvg(payload.svg);
         setHeight(nextHeight);
         setError(null);
-        onStatusChangeRef.current("ready");
+        onStatusChange("ready");
         return;
       }
       const message =
@@ -173,16 +169,16 @@ export const MermaidDiagram = memo(function MermaidDiagram(props: {
           : "Could not render this Mermaid diagram.";
       setError(message ?? "Could not render this Mermaid diagram.");
       if (isStreaming && svgRef.current != null) {
-        onStatusChangeRef.current("ready");
+        onStatusChange("ready");
         return;
       }
       if (!isStreaming) {
         svgRef.current = null;
         setSvg(null);
       }
-      onStatusChangeRef.current("error");
+      onStatusChange("error");
     } catch {
-      onStatusChangeRef.current("error");
+      onStatusChange("error");
     }
   };
 

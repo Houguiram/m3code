@@ -1,5 +1,5 @@
 import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { isElectron } from "../env";
 import { localProjectWorkspaceRoots } from "../m3CodeActions.logic";
@@ -12,35 +12,39 @@ export function useM3CodeCheckoutPath(): {
 } {
   const projects = useProjects();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const candidatePaths = useMemo(
-    () =>
-      localProjectWorkspaceRoots(projects, primaryEnvironmentId ?? PRIMARY_LOCAL_ENVIRONMENT_ID),
-    [primaryEnvironmentId, projects],
+  const candidatePaths = localProjectWorkspaceRoots(
+    projects,
+    primaryEnvironmentId ?? PRIMARY_LOCAL_ENVIRONMENT_ID,
   );
-  const [checkoutPath, setCheckoutPath] = useState<string | null>(null);
+  const candidateKey = JSON.stringify(candidatePaths);
+  const [resolution, setResolution] = useState<{ key: string; checkoutPath: string | null } | null>(
+    null,
+  );
 
+  // oxlint-disable-next-line t3code/react-effect-budget -- Resolve the checkout through desktop IPC when local project paths change.
   useEffect(() => {
     if (!isElectron) {
-      setCheckoutPath(null);
       return;
     }
     const resolve = window.desktopBridge?.resolveM3CodeCheckout;
     if (typeof resolve !== "function") {
-      setCheckoutPath(null);
       return;
     }
     let cancelled = false;
     void resolve([...candidatePaths])
       .then((result) => {
-        if (!cancelled) setCheckoutPath(result.checkoutPath);
+        if (!cancelled) setResolution({ key: candidateKey, checkoutPath: result.checkoutPath });
       })
       .catch(() => {
-        if (!cancelled) setCheckoutPath(null);
+        if (!cancelled) setResolution({ key: candidateKey, checkoutPath: null });
       });
     return () => {
       cancelled = true;
     };
-  }, [candidatePaths]);
+  }, [candidatePaths, candidateKey]);
 
-  return { checkoutPath, candidatePaths };
+  return {
+    checkoutPath: isElectron && resolution?.key === candidateKey ? resolution.checkoutPath : null,
+    candidatePaths,
+  };
 }

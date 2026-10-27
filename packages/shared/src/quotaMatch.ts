@@ -1,13 +1,4 @@
-/**
- * Join CodexBar quota accounts onto M3 provider instances.
- *
- * Automatic matching is email (plus organization when two rows share an
- * email). A stored `codexBarAccount` pin always wins. Same-driver sole
- * account/instance pairs bind when no email is available (Claude often
- * omits identity).
- *
- * @module quotaMatch
- */
+// Stored account pins win; automatic matching uses email, organization, then sole pairs.
 import type {
   ProviderDriverKind,
   ProviderInstanceId,
@@ -62,7 +53,7 @@ export function quotaAccountLabel(
   const email = account.email?.trim() ?? "";
   const organization = account.organization?.trim() ?? "";
   if (email.length > 0 && organization.length > 0) {
-    return `${email} — ${organization}`;
+    return `${email}: ${organization}`;
   }
   if (email.length > 0) return email;
   return account.label;
@@ -76,7 +67,9 @@ function accountMatchesPin(account: QuotaAccount, pin: string): boolean {
     normalizeQuotaIdentity(account.key) === normalizedPin ||
     normalizeQuotaIdentity(account.email) === normalizedPin ||
     normalizeQuotaIdentity(account.label) === normalizedPin ||
-    normalizeQuotaIdentity(quotaAccountLabel(account)) === normalizedPin
+    // Pins saved before the label typography changed still identify the same account.
+    normalizeQuotaIdentity(quotaAccountLabel(account)) ===
+      normalizedPin.replace(/\s+\u2014\s+/gu, ": ")
   );
 }
 

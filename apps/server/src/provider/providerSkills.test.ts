@@ -10,7 +10,6 @@ import {
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
@@ -103,7 +102,7 @@ function makeLayer(input: {
       getInstance: () => Effect.succeed(instance),
     }),
     Layer.mock(ProjectStore.ProjectStoreV2)({
-      getShell: () => Effect.succeed(Option.some(project)),
+      getShell: () => Effect.succeedSome(project),
     }),
     Layer.mock(ProjectionStore.ProjectionStoreV2)({
       getThreadShell: () =>
@@ -126,7 +125,7 @@ it.effect("discovers skills from the thread worktree", () =>
         makeLayer({
           loadSkills: (cwd) => {
             discoveredCwd = cwd;
-            return Effect.succeed(Option.some([workspaceSkill]));
+            return Effect.succeedSome([workspaceSkill]);
           },
         }),
       ),
@@ -146,7 +145,7 @@ it.effect("uses the project root when the supplied thread belongs to another pro
           threadProjectId: ProjectId.make("project-2"),
           loadSkills: (cwd) => {
             discoveredCwd = cwd;
-            return Effect.succeed(Option.some([]));
+            return Effect.succeedSome([]);
           },
         }),
       ),
@@ -162,7 +161,7 @@ it.effect("preserves the provider snapshot when scoped discovery fails", () =>
     const result = yield* queryProviderSkills({ instanceId, projectId, threadId }).pipe(
       Effect.provide(
         makeLayer({
-          loadSkills: () => Effect.succeed(Option.none()),
+          loadSkills: () => Effect.succeedNone,
         }),
       ),
     );

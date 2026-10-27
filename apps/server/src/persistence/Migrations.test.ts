@@ -26,25 +26,17 @@ const v2TableCount = Effect.gen(function* () {
 });
 
 describe("runMigrations", () => {
-  it.effect("migrates a fresh database through the whole manifest", () =>
-    Effect.gen(function* () {
-      yield* runMigrations();
-      assert.deepStrictEqual(yield* history, migrationManifest);
-      assert.isAbove(yield* v2TableCount, 0);
-    }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
-  );
-
   it.effect("appends upstream migrations to the installed M3 ledger", () =>
     Effect.gen(function* () {
-      yield* runMigrations({ toMigrationInclusive: 59 });
+      yield* runMigrations({ toMigrationInclusive: 63 });
       const installed = yield* history;
       assert.deepStrictEqual(
         installed,
-        migrationManifest.filter(([id]) => id <= 59),
+        migrationManifest.filter(([id]) => id <= 63),
       );
       assert.deepStrictEqual(
         yield* runMigrations(),
-        migrationManifest.filter(([id]) => id > 59),
+        migrationManifest.filter(([id]) => id > 63),
       );
       assert.deepStrictEqual((yield* history).slice(0, installed.length), installed);
       assert.deepStrictEqual(yield* history, migrationManifest);

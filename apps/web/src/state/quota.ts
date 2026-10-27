@@ -11,7 +11,6 @@ import {
 } from "@t3tools/contracts";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
-import { useCallback } from "react";
 
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { usePrimaryEnvironmentId } from "./environments";
@@ -33,10 +32,10 @@ export function useQuotaSnapshot(): {
       : serverEnvironment.quotaSnapshot({ environmentId, input: {} });
   const result = useAtomValue(atom);
 
-  const refresh = useCallback(() => {
+  const refresh = () => {
     if (environmentId === null) return;
     appAtomRegistry.refresh(serverEnvironment.quotaSnapshot({ environmentId, input: {} }));
-  }, [environmentId]);
+  };
 
   if (environmentId === null) {
     return { snapshot: null, isPending: false, refresh };
