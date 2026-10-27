@@ -15,9 +15,9 @@ import {
 } from "@t3tools/client-runtime/mermaid-language";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { useMarkdownCodeHighlight } from "./markdownCodeHighlightState";
-import type { ReviewDiffTheme } from "../review/shikiReviewHighlighter";
-import { SymbolView } from "../../components/AppSymbol";
-import { CopyTextButton } from "../../components/CopyTextButton";
+import type { HighlightScheme } from "../../lib/highlights";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { CopyTextButton } from "./CopyTextButton";
 import type { NativeMarkdownTextStyle } from "../../native/SelectableMarkdownText.types";
 
 export function MermaidMarkdownDiagram(props: {
@@ -53,7 +53,7 @@ function MarkdownCodeBlock(props: {
   readonly language?: string | null;
   readonly lineHeight: number;
   readonly textColor: string;
-  readonly theme: ReviewDiffTheme;
+  readonly theme: HighlightScheme;
 }) {
   const content = props.content.replace(/\n$/, "");
   const languageLabel = props.language?.trim() || "text";

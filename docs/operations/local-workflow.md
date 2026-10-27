@@ -111,7 +111,7 @@ Read ports and the pairing URL from the `[dev-runner]` line. Hand over the full 
 including the token.
 
 CORS for the Electron renderer allowlists `m3code://app` and `m3code-dev://app` in
-`apps/server/src/http.ts`. If the dev window shows a connection error after a scheme rename, that
+`apps/server/src/httpCors.ts`. If the dev window shows a connection error after a scheme rename, that
 list is the first place to check.
 
 UI changes in `apps/web` hot-reload in the running `dev:desktop` window. Do not rebuild the

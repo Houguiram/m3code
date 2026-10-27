@@ -1,3 +1,4 @@
+import { useNowMinute } from "../../hooks/useNowMinute";
 import { useAtomValue } from "@effect/atom-react";
 import type { QuotaInstanceBinding, QuotaSnapshot } from "@t3tools/contracts";
 import { formatQuotaWindow } from "@t3tools/shared/quotaFormat";
@@ -22,7 +23,7 @@ export function UsageQuotaStrip(props: {
   readonly onRefresh: () => void;
 }) {
   const providers = useAtomValue(primaryServerProvidersAtom);
-  const nowMs = Date.now();
+  const nowMs = Date.parse(useNowMinute());
 
   if (props.snapshot === null && props.isPending) {
     return (

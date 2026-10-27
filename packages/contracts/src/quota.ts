@@ -1,12 +1,4 @@
-/**
- * Remaining subscription quota, sourced from the local CodexBar CLI.
- *
- * Distinct from {@link UsageSummary}: that page is a local token/cost scan.
- * This snapshot is account-level remaining limits (5-hour / weekly / plan
- * windows) keyed to configured provider instances.
- *
- * @module quota
- */
+// Account-level subscription limits from CodexBar, keyed to provider instances.
 import * as Schema from "effect/Schema";
 
 import { NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";

@@ -144,20 +144,23 @@ describe("bindQuotaInstances", () => {
     ).toEqual([{ instanceId: workId, driver: codex, match: "manual", account: team }]);
   });
 
-  it("binds a pin by CodexBar account label", () => {
-    expect(
-      bindQuotaInstances(
-        [
-          {
-            instanceId: workId,
-            driver: codex,
-            pin: "marin@firstconcepts.co — First Concepts",
-          },
-        ],
-        [work, personal],
-      ),
-    ).toEqual([{ instanceId: workId, driver: codex, match: "manual", account: work }]);
-  });
+  it.each(["marin@firstconcepts.co — First Concepts", "marin@firstconcepts.co: First Concepts"])(
+    "binds a pin by CodexBar account label: %s",
+    (pin) => {
+      expect(
+        bindQuotaInstances(
+          [
+            {
+              instanceId: workId,
+              driver: codex,
+              pin,
+            },
+          ],
+          [work, personal],
+        ),
+      ).toEqual([{ instanceId: workId, driver: codex, match: "manual", account: work }]);
+    },
+  );
 
   it("falls back to the sole same-driver account when Claude has no email", () => {
     const claudeAccount = account({ provider: "claude", label: "Claude" });

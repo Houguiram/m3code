@@ -1,3 +1,4 @@
+import { useNowMinute } from "../../hooks/useNowMinute";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { type ProviderInstanceId } from "@t3tools/contracts";
 import { memo, useLayoutEffect, useRef, useState } from "react";
@@ -25,7 +26,7 @@ function describeUnavailableInstance(
   const label = entry.displayName;
   const withQuota = (text: string) => (quotaLine ? `${text}. ${quotaLine}` : text);
   if (!entry.enabled || entry.status === "disabled") {
-    return withQuota(`${label} — Disabled in settings.`);
+    return withQuota(`${label}: Disabled in settings.`);
   }
   if (entry.status === "ready" && entry.isAvailable) {
     return withQuota(label);
@@ -33,16 +34,13 @@ function describeUnavailableInstance(
   const kind =
     entry.status === "error" ? "Unavailable" : entry.status === "warning" ? "Limited" : "Not ready";
   const msg = entry.snapshot.message?.trim();
-  return withQuota(msg ? `${label} — ${kind}. ${msg}` : `${label} — ${kind}.`);
+  return withQuota(msg ? `${label}: ${kind}. ${msg}` : `${label}: ${kind}.`);
 }
 
-const SELECTED_INDICATOR_CLASS =
-  "pointer-events-none absolute -right-1 top-1/2 z-10 h-5 w-0.75 -translate-y-1/2 rounded-l-full bg-primary";
 const BADGE_BASE_CLASS =
   "pointer-events-none absolute -right-0.5 top-0.5 z-10 flex size-3.5 items-center justify-center rounded-full bg-transparent shadow-sm ";
 const NEW_BADGE_CLASS = `${BADGE_BASE_CLASS} text-update-foreground `;
 
-/** Opens toward the rail so the list stays readable (not over the model names). */
 const PICKER_TOOLTIP_SIDE = "left" as const;
 const PICKER_TOOLTIP_SIDE_OFFSET = 8;
 
@@ -50,32 +48,18 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
   selectedInstanceId: ProviderInstanceId | "favorites";
   onSelectInstance: (instanceId: ProviderInstanceId | "favorites") => void;
   onFocusSearch: () => void;
-  /**
-   * Instance entries to render as rail buttons. Each entry becomes one icon
-   * keyed by `instanceId`, so the default built-in Codex and a user-authored
-   * `codex_personal` appear as two distinct rail items, each routing to
-   * their own model list.
-   */
   instanceEntries: ReadonlyArray<ProviderInstanceEntry>;
-  /** Render the favorites rail entry. Hidden for locked-provider instance switching. */
   showFavorites?: boolean;
-  /** Instance ids shown in the rail but unavailable for the current picker context. */
   disabledInstanceIds?: ReadonlySet<ProviderInstanceId>;
-  /** Non-ready instances whose selected unavailable model remains reachable. */
   selectableUnavailableInstanceIds?: ReadonlySet<ProviderInstanceId>;
   getDisabledInstanceTooltip?: (entry: ProviderInstanceEntry) => string;
-  /**
-   * Instance id values that should render the "new" sparkle badge. Callers
-   * pass the subset of default built-in ids they want flagged (custom
-   * instances are never flagged — the user just made them).
-   */
   newBadgeInstanceIds?: ReadonlySet<ProviderInstanceId>;
 }) {
   const handleSelect = (instanceId: ProviderInstanceId | "favorites") => {
     props.onSelectInstance(instanceId);
   };
   const { snapshot: quotaSnapshot } = useQuotaSnapshot();
-  const quotaNowMs = Date.now();
+  const quotaNowMs = Date.parse(useNowMinute());
   const showFavorites = props.showFavorites ?? true;
   const [hoveredInstanceId, setHoveredInstanceId] = useState<ProviderInstanceId | null>(null);
   const sidebarContentRef = useRef<HTMLDivElement>(null);
@@ -93,7 +77,12 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
       return;
     }
     setSelectedIndicatorTop(selectedItem.offsetTop + selectedItem.offsetHeight / 2 - 10);
-  }, [props.instanceEntries, props.selectedInstanceId, showFavorites]);
+  }, [
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Adding, removing or reordering providers moves the selected item, so the indicator re-measures.
+    props.instanceEntries,
+    props.selectedInstanceId,
+    showFavorites,
+  ]);
 
   return (
     <Toolbar.Root
@@ -115,14 +104,10 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
           {selectedIndicatorTop !== null ? (
             <div
               data-model-picker-selected-indicator="true"
-              className={cn(
-                SELECTED_INDICATOR_CLASS,
-                "right-0 translate-y-0 transition-[top] duration-200 ease-out",
-              )}
+              className="pointer-events-none absolute right-1 z-10 h-5 w-0.75 rounded-full bg-primary transition-[top] duration-200 ease-out"
               style={{ top: selectedIndicatorTop }}
             />
           ) : null}
-          {/* Favorites section */}
           {showFavorites ? (
             <>
               <div className="relative w-full" data-model-picker-provider="favorites">
@@ -155,7 +140,6 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
             </>
           ) : null}
 
-          {/* Instance buttons (one per configured instance — built-in + custom) */}
           {props.instanceEntries.map((entry) => {
             const isUnavailable = !isProviderInstancePickerReady(entry);
             const isContextDisabled = props.disabledInstanceIds?.has(entry.instanceId) ?? false;
@@ -180,7 +164,7 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
               : isContextDisabled
                 ? (props.getDisabledInstanceTooltip?.(entry) ?? entry.displayName)
                 : showNewBadge
-                  ? `${entry.displayName} — New`
+                  ? `${entry.displayName} (New)`
                   : quotaLine
                     ? `${entry.displayName}. ${quotaLine}`
                     : entry.displayName;

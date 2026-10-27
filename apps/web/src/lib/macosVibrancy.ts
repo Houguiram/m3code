@@ -1,11 +1,4 @@
-/**
- * The class the macOS desktop shell carries on the document element, where the
- * window is backed by a native vibrancy view. The boot script in index.html
- * sets it before first paint and the platform classes keep it applied.
- *
- * Kept free of imports so the surfaces that paint the document (theme sync,
- * boot chrome) can ask about it without pulling in app modules.
- */
+// Leave the macOS document surface unpainted so native vibrancy remains visible.
 export const MACOS_VIBRANCY_CLASS_NAME = "electron-macos";
 
 /**

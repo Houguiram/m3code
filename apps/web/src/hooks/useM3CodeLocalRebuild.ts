@@ -1,5 +1,3 @@
-import { useCallback } from "react";
-
 import { ensureLocalApi } from "../localApi";
 import { getM3CodeRebuildConfirmationMessage } from "../m3CodeActions.logic";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
@@ -8,7 +6,7 @@ import { useM3CodeCheckoutPath } from "./useM3CodeCheckout";
 export function useM3CodeLocalRebuild() {
   const { checkoutPath, candidatePaths } = useM3CodeCheckoutPath();
 
-  const startRebuild = useCallback(async () => {
+  const startRebuild = async () => {
     const bridge = window.desktopBridge;
     const openTerminal = bridge?.openM3CodeLoginTerminal;
     if (typeof openTerminal !== "function" || checkoutPath === null) {
@@ -67,7 +65,7 @@ export function useM3CodeLocalRebuild() {
       );
       return { started: false as const, error: description };
     }
-  }, [candidatePaths, checkoutPath]);
+  };
 
   return { checkoutPath, startRebuild };
 }

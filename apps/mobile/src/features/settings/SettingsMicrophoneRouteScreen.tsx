@@ -1,15 +1,17 @@
-import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
+import { Button } from "../../components/ui/Button";
+import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
 import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync } from "expo-audio";
-import { useCallback, useEffect, useState } from "react";
-import { AppState, Linking, Pressable, View } from "react-native";
+import { useState } from "react";
+import { Linking, Pressable, View } from "react-native";
 import Reanimated, { ReduceMotion, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { type AppSymbolName, SymbolView } from "../../components/AppSymbol";
-import { AppText as Text } from "../../components/AppText";
+import { type AppSymbolName, SymbolView } from "../../components/ui/AppSymbol";
+import { AppText as Text } from "../../components/ui/AppText";
 import { cn } from "../../lib/cn";
+import { makePermissionStatusAtom } from "../../lib/permissionStatusAtom";
 import {
   isMicrophoneDevice,
   type MicrophoneEntry,
@@ -18,6 +20,7 @@ import {
   microphoneOrder,
 } from "../../lib/microphonePriority";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import { ListRowLayout } from "../../components/ui/ListRowLayout";
 import { SettingsActionRow } from "./components/SettingsActionRow";
 import { SettingsDragHandle } from "./components/SettingsDragHandle";
 import { SettingsSection } from "./components/SettingsSection";
@@ -26,36 +29,35 @@ const REMOVE_SIZE = 20;
 
 type MicrophonePermission = "checking" | "granted" | "ask" | "denied";
 
-/** Re-reads microphone access whenever the app returns from system Settings. */
+function toMicrophonePermission(response: {
+  readonly granted: boolean;
+  readonly canAskAgain: boolean;
+}): MicrophonePermission {
+  return response.granted ? "granted" : response.canAskAgain ? "ask" : "denied";
+}
+
+const readMicrophonePermission = () =>
+  getRecordingPermissionsAsync().then(toMicrophonePermission, (): MicrophonePermission => "ask");
+
+const microphonePermissionAtom = makePermissionStatusAtom<MicrophonePermission>({
+  label: "mobile:microphone-permission",
+  initial: "checking",
+  read: readMicrophonePermission,
+});
+
 function useMicrophonePermission() {
-  const [permission, setPermission] = useState<MicrophonePermission>("checking");
-  const apply = useCallback(
-    (response: { readonly granted: boolean; readonly canAskAgain: boolean }) =>
-      setPermission(response.granted ? "granted" : response.canAskAgain ? "ask" : "denied"),
-    [],
-  );
-  const refresh = useCallback(
-    () => void getRecordingPermissionsAsync().then(apply, () => setPermission("ask")),
-    [apply],
-  );
-  useEffect(() => {
-    refresh();
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") refresh();
-    });
-    return () => subscription.remove();
-  }, [refresh]);
-  const request = useCallback(
-    () => void requestRecordingPermissionsAsync().then(apply, refresh),
-    [apply, refresh],
-  );
+  const permission = useAtomValue(microphonePermissionAtom);
+  const setPermission = useAtomSet(microphonePermissionAtom);
+  const request = () =>
+    void requestRecordingPermissionsAsync()
+      .then(toMicrophonePermission, readMicrophonePermission)
+      .then(setPermission);
   return { permission, request };
 }
 
 const KINDS: Record<
   MicrophoneKind,
   {
-    /** Shown under a remembered device's name. */
     readonly label: string;
     readonly row: string;
     readonly rowDescription: string;
@@ -88,11 +90,6 @@ const KINDS: Record<
   },
 };
 
-/**
- * Microphone kinds and remembered devices, in the order voice input prefers
- * them. iOS only. A device joins the list the first time it is connected
- * during dictation; until then its kind's row ranks it.
- */
 export function SettingsMicrophoneRouteScreen() {
   const insets = useSafeAreaInsets();
   const preferencesResult = useAtomValue(mobilePreferencesAtom);
@@ -132,7 +129,6 @@ export function SettingsMicrophoneRouteScreen() {
         ),
       }),
     });
-  // A lifted row takes a neighbour's slot once it has moved past half of that row.
   const dropSteps = (from: number, translation: number) =>
     rowHeight === 0
       ? 0
@@ -174,15 +170,11 @@ export function SettingsMicrophoneRouteScreen() {
           title="Preferred order"
           trailing={
             hasDevices ? (
-              <Pressable
-                accessibilityRole="button"
+              <Button
+                label={editing ? "Done" : "Edit"}
+                tone="text"
                 onPress={() => setEditing((value) => !value)}
-                className="px-2 py-1 active:opacity-70"
-              >
-                <Text className="text-sm font-t3-medium text-foreground">
-                  {editing ? "Done" : "Edit"}
-                </Text>
-              </Pressable>
+              />
             ) : undefined
           }
         >
@@ -263,10 +255,9 @@ function MicrophoneRow(props: {
       style={style}
       onLayout={(event) => props.onHeight(event.nativeEvent.layout.height)}
       className={cn(
-        "flex-row items-center gap-4 pl-4",
+        "flex-row items-center",
         props.position > 1 && !lifted && "border-t border-border-subtle",
         lifted && "bg-grouped-card shadow-md",
-        !props.reorderable && "pr-4",
       )}
     >
       {props.editing && props.onForget ? (
@@ -275,7 +266,7 @@ function MicrophoneRow(props: {
           accessibilityLabel={`Forget ${title}`}
           hitSlop={8}
           onPress={props.onForget}
-          className="active:opacity-70"
+          className="pl-4 active:opacity-70"
         >
           <SymbolView
             name="xmark.circle.fill"
@@ -285,28 +276,20 @@ function MicrophoneRow(props: {
           />
         </Pressable>
       ) : props.editing ? (
-        <View style={{ width: REMOVE_SIZE }} />
+        <View className="pl-4">
+          <View style={{ width: REMOVE_SIZE }} />
+        </View>
       ) : null}
       <View
         accessible
         accessibilityLabel={`${title}, ${kind.label}, ${props.position} of ${props.count}`}
-        className="min-w-0 flex-1 flex-row items-center gap-4 py-4"
+        className="min-w-0 flex-1"
       >
-        <SymbolView
-          name={kind.icon}
-          size={22}
-          tintColorClassName="accent-icon"
-          type="monochrome"
-          weight="regular"
+        <ListRowLayout
+          icon={kind.icon}
+          label={title}
+          description={isMicrophoneDevice(entry) ? kind.label : kind.rowDescription}
         />
-        <View className="min-w-0 flex-1 gap-0.5">
-          <Text numberOfLines={1} className="text-lg text-foreground">
-            {title}
-          </Text>
-          <Text numberOfLines={1} className="text-sm text-foreground-muted">
-            {isMicrophoneDevice(entry) ? kind.label : kind.rowDescription}
-          </Text>
-        </View>
       </View>
       {props.reorderable ? (
         <SettingsDragHandle
